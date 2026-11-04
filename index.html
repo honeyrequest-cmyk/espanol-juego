@@ -62,7 +62,8 @@ textarea:focus,input:focus{outline:none;border-color:var(--red)}
 .mic.on{animation:pulse 1.1s infinite;background:#d14a3c}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(180,55,43,.45)}100%{box-shadow:0 0 0 22px rgba(180,55,43,0)}}
 .heard{min-height:1.6em;text-align:center;color:var(--mut)}
-.speak{border:none;background:none;font-size:1.25rem;cursor:pointer;padding:0 4px;vertical-align:middle}
+.speak{border:1px solid var(--line);background:#fff;border-radius:10px;font-size:1.2rem;cursor:pointer;padding:4px 8px;vertical-align:middle;min-width:44px;min-height:40px;transition:transform .08s}
+.speak:active,.mic:active,.btn:active,.opt:active,.tile:active,.mode:active{transform:scale(.92);background:var(--red2)}
 .tip{font-size:.86rem;color:var(--mut);margin-top:6px}
 .stat{display:flex;gap:10px}
 .stat div{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
@@ -123,8 +124,13 @@ const pick=(a,n)=>shuffle(a).slice(0,n);
 let VOICE=null;
 function loadVoice(){const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>v.lang==='es-ES'&&/google/i.test(v.name))||vs.find(v=>v.lang==='es-ES')||vs.find(v=>/^es/.test(v.lang))||null}
 if('speechSynthesis' in window){loadVoice();speechSynthesis.onvoiceschanged=loadVoice}
-// 아이폰: 쉬고 있을 때 cancel()을 부르면 바로 다음 speak가 묻히고, 멈춰 있으면(paused) 계속 안 나옴 → 말하는 중일 때만 cancel, 항상 resume
-function say(t,rate){if(!('speechSynthesis' in window))return;try{if(!IOS||speechSynthesis.speaking||speechSynthesis.pending)speechSynthesis.cancel();speechSynthesis.resume()}catch(e){}const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE)u.voice=VOICE;u.rate=rate||S.rate;u.onend=()=>LAST_TTS=Date.now();LAST_TTS=Date.now();speechSynthesis.speak(u)}
+// 아이폰: 목소리를 직접 고르면(설치 안 된 목소리) 무음이 될 수 있어 lang만 지정.
+// 앞의 소리를 취소한 직후 바로 읽으면 묻히므로, 0.7초 안에 시작 안 하면 한 번 더 시도하고 그래도 안 되면 안내.
+function say(t,rate){if(!('speechSynthesis' in window)){toast('이 브라우저는 읽어 주기가 안 돼요');return}
+ const make=()=>{const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE&&!IOS)u.voice=VOICE;u.rate=rate||S.rate;u.onend=()=>LAST_TTS=Date.now();u.onerror=e=>{if(e.error!=='interrupted'&&e.error!=='canceled')toast('읽어 주기 오류: '+e.error)};return u};
+ try{if(speechSynthesis.speaking||speechSynthesis.pending)speechSynthesis.cancel();if(speechSynthesis.paused)speechSynthesis.resume()}catch(e){}
+ const u=make();let started=false;u.onstart=()=>{started=true};LAST_TTS=Date.now();speechSynthesis.speak(u);
+ if(IOS)setTimeout(()=>{if(started)return;try{speechSynthesis.cancel()}catch(e){}const u2=make();u2.onstart=()=>{started=true};speechSynthesis.speak(u2);setTimeout(()=>{if(!started)toast('소리가 안 나요. 무음 스위치·음량 확인 후, 탭을 닫고 다시 열어 보세요')},1500)},700)}
 const autoOn=()=>S.autoTTS===undefined?!IOS:S.autoTTS;
 function sayAuto(t){if(autoOn())say(t)}
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -287,7 +293,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <div class="row"><button class="btn soft" onclick="if(confirm('오늘 기록·오답 노트·AI 문장을 모두 지울까요?')){localStorage.removeItem(KEY);location.reload()}">기록 모두 지우기</button></div>
 <div class="card"><b>🎙 마이크 테스트</b><div class="row"><button class="btn soft" onclick="micTest()">테스트 시작</button></div><div id="mt" class="mut" style="margin-top:8px">${SR?'':esc(noSrMsg())}</div>
 <div class="tip">아이폰: Safari로 열고, 설정 → 일반 → 키보드 → "받아쓰기 활성화"를 켜야 해요. 그래도 안 되면 문제 화면의 "⌨ 쓰기로 답하기"에서 키보드 🎤(스페인어 키보드)로 말해도 돼요.</div></div>
-<p class="mut">스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut">버전 11-05c · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 /* ---------- Claude ---------- */
 let SDK=null;
@@ -354,8 +360,6 @@ async function genAi(){if(!S.lessons.length)return toast('과를 먼저 고르�
  try{const r=await claude(p.sys,p.user,SCH_GEN);showAdded(addAi(r.sentences||[]))}catch(e){$('#gout').innerHTML=`<div class="tip">${esc(aiErr(e))}</div>`}}
 function pasteAi(){try{const t=$('#paste').value;const m=t.match(/\{[\s\S]*\}/);const r=JSON.parse(m?m[0]:t);showAdded(addAi(r.sentences||[]))}catch(e){toast('JSON을 읽지 못했어요. 통째로 붙여 넣었는지 확인하세요')}}
 
-// 아이폰: 첫 터치 때 소리 없는 읽기를 한 번 해서 읽어 주기 기능을 깨워 둠
-if(IOS&&'speechSynthesis' in window)document.addEventListener('touchend',function wake(){try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}document.removeEventListener('touchend',wake)},{once:true});
 home();
 </script>
 </body>
