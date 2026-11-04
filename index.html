@@ -123,7 +123,10 @@ const pick=(a,n)=>shuffle(a).slice(0,n);
 let VOICE=null;
 function loadVoice(){const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>v.lang==='es-ES'&&/google/i.test(v.name))||vs.find(v=>v.lang==='es-ES')||vs.find(v=>/^es/.test(v.lang))||null}
 if('speechSynthesis' in window){loadVoice();speechSynthesis.onvoiceschanged=loadVoice}
-function say(t,rate){if(!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE)u.voice=VOICE;u.rate=rate||S.rate;speechSynthesis.speak(u)}
+// 아이폰: 쉬고 있을 때 cancel()을 부르면 바로 다음 speak가 묻히고, 멈춰 있으면(paused) 계속 안 나옴 → 말하는 중일 때만 cancel, 항상 resume
+function say(t,rate){if(!('speechSynthesis' in window))return;try{if(!IOS||speechSynthesis.speaking||speechSynthesis.pending)speechSynthesis.cancel();speechSynthesis.resume()}catch(e){}const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE)u.voice=VOICE;u.rate=rate||S.rate;u.onend=()=>LAST_TTS=Date.now();LAST_TTS=Date.now();speechSynthesis.speak(u)}
+const autoOn=()=>S.autoTTS===undefined?!IOS:S.autoTTS;
+function sayAuto(t){if(autoOn())say(t)}
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let REC=null;
 const UA=navigator.userAgent||'';
@@ -131,15 +134,24 @@ const IOS=/iPhone|iPad|iPod/.test(UA)||(navigator.platform==='MacIntel'&&navigat
 const INAPP=/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\//i.test(UA);
 const IOS_OTHER=IOS&&/CriOS|FxiOS|EdgiOS|OPiOS/.test(UA);
 // 아이폰 Safari는 isFinal이 안 오거나 말이 끝나도 안 멈출 때가 있어서: 마지막 중간 결과를 답으로 쓰고, 2.5초 조용하면 직접 멈춤
-function listen(onPart){return new Promise((res,rej)=>{if(!SR)return rej(new Error('nosr'));try{speechSynthesis.cancel()}catch(e){}
- const r=new SR();REC=r;r.lang='es-ES';r.interimResults=true;r.continuous=false;r.maxAlternatives=4;let finals=[],last='',quiet=null,done=false;
- const end=v=>{if(done)return;done=true;clearTimeout(quiet);REC=null;res(v)};
- r.onresult=e=>{let txt='';for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript;if(e.results[i].isFinal)finals=[...e.results[i]].map(a=>a.transcript)}last=txt.trim();onPart&&onPart(txt);clearTimeout(quiet);quiet=setTimeout(()=>{try{r.stop()}catch(e){}setTimeout(()=>end(finals.length?finals:last?[last]:[]),700)},2500)};
- r.onerror=e=>{if(e.error==='no-speech'||e.error==='aborted')end(last?[last]:[]);else{done=true;clearTimeout(quiet);REC=null;rej(new Error(e.error))}};
- r.onend=()=>end(finals.length?finals:last?[last]:[]);
- const go=()=>{try{r.start()}catch(e){done=true;REC=null;rej(e)}};
- go();
- setTimeout(()=>{try{r.stop()}catch(e){}},20000)})}
+// 아이폰: 읽어 주기 소리가 나는 중이거나 막 끝났으면 마이크가 소리를 못 받음 → 소리가 멈춘 뒤 잠깐 쉬고 시작.
+// 어떤 경우에도 15초 안에는 반드시 끝나게 해서 "듣는 중"에 갇히지 않게 함.
+let LAST_TTS=0;
+function listen(onPart){return new Promise((res,rej)=>{if(!SR)return rej(new Error('nosr'));
+ if(REC){try{REC.abort()}catch(e){}REC=null}
+ let busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending;if(busy||!IOS)speechSynthesis.cancel()}catch(e){}
+ const r=new SR();r.lang='es-ES';r.interimResults=true;r.continuous=false;r.maxAlternatives=4;let finals=[],last='',quiet=null,first=null,hard=null,done=false;
+ const result=()=>finals.length?finals:last?[last]:[];
+ const end=v=>{if(done)return;done=true;clearTimeout(quiet);clearTimeout(first);clearTimeout(hard);REC=null;res(v)};
+ const fail=e=>{if(done)return;done=true;clearTimeout(quiet);clearTimeout(first);clearTimeout(hard);REC=null;rej(e)};
+ const stopSoon=()=>{try{r.stop()}catch(e){}setTimeout(()=>end(result()),800)};
+ REC={stop:stopSoon,abort:()=>{try{r.abort()}catch(e){}end(result())}};
+ r.onresult=e=>{let txt='';for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript;if(e.results[i].isFinal)finals=[...e.results[i]].map(a=>a.transcript)}last=txt.trim();onPart&&onPart(txt);clearTimeout(first);clearTimeout(quiet);quiet=setTimeout(stopSoon,2500)};
+ r.onerror=e=>{if(e.error==='no-speech'||e.error==='aborted')end(result());else fail(new Error(e.error))};
+ r.onend=()=>end(result());
+ const go=()=>{if(done)return;try{r.start()}catch(e){fail(e);return}first=setTimeout(stopSoon,9000);hard=setTimeout(stopSoon,15000)};
+ const wait=IOS?(busy?600:Math.max(0,500-(Date.now()-LAST_TTS))):0;
+ if(wait)setTimeout(go,wait);else go()})}
 
 /* ---------- 기록 ---------- */
 function mark(item,ok){const d=S.days[today()]||(S.days[today()]={n:0,ok:0});d.n++;if(ok)d.ok++;if(!ok)S.miss[item.id]=(S.miss[item.id]||0)+1;else if(S.miss[item.id]){S.miss[item.id]--;if(S.miss[item.id]<=0)delete S.miss[item.id]}save()}
@@ -200,10 +212,10 @@ function render(){if(G.i>=G.items.length)return done();const q=G.items[G.i];q.an
   h+=`<div class="mut">${label} <span class="tag">${it.l}과 · ${esc(it.cat)}</span></div>`;
   if(q.t==='es2ko')h+=`<div class="q es">${esc(it.es)} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button></div>`;
   if(q.t==='ko2es'||q.t==='spell')h+=`<div class="q">${esc(it.ko)}</div>`;
-  if(q.t==='listen')h+=`<div style="text-align:center"><button class="mic" style="font-size:1.6rem" onclick="say(G.items[G.i].item.es)">🔊</button><div class="mut">다시 들으려면 누르세요</div></div>`;
+  if(q.t==='listen')h+=`<div style="text-align:center"><button class="mic" style="font-size:1.6rem" onclick="say(G.items[G.i].item.es)">🔊</button><div class="mut">${IOS?'눌러서 들으세요':'다시 들으려면 누르세요'}</div></div>`;
   if(q.t==='spell')h+=`<input type="text" id="ans" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="스페인어로" onkeydown="if(event.key==='Enter')checkSpell()">${accBar()}<div class="row"><button class="btn" onclick="checkSpell()">확인</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div>`;
   else h+=`<div class="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}" onclick="pickOpt(${k})">${esc(q.t==='ko2es'?o.es:o.ko)}</button>`).join('')}</div>`;
-  h+='<div id="out"></div></div>';app.innerHTML=h;if(q.t==='listen')setTimeout(()=>say(it.es),250);return}
+  h+='<div id="out"></div></div>';app.innerHTML=h;if(q.t==='listen'&&!IOS)setTimeout(()=>say(it.es),250);return}
  if(q.kind==='build'){h+=`<div class="mut">단어 카드를 순서대로 누르세요 ${lvTag(it)}</div><div class="q">${esc(it.ko)}</div><div class="slot" id="slot"></div><div class="tiles" id="tiles"></div><div class="mut" style="margin-top:4px">안 쓰는 카드가 1~2개 섞여 있어요. 붙인 카드를 누르면 빠져요.</div><div class="row"><button class="btn" onclick="checkBuild()">확인</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div><div id="out"></div></div>`;app.innerHTML=h;drawTiles();return}
  if(q.kind==='write'||q.kind==='drill'){
   if(q.kind==='write')h+=`<div class="mut">스페인어로 쓰세요 ${lvTag(it)}</div><div class="q">${esc(it.ko)}</div>`;
@@ -214,24 +226,24 @@ function render(){if(G.i>=G.items.length)return done();const q=G.items[G.i];q.an
   else h+=`<div class="mut">듣고 똑같이 말해 보세요 ${lvTag(it)}</div><div class="q es">${esc(shown(it.es))} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button> <button class="speak" title="천천히" onclick="say(G.items[G.i].item.es,0.6)">🐢</button></div><div class="mut">${esc(it.ko)}</div>`;
   h+=SR?`<button class="mic" id="mic" onclick="speakNow()">🎙</button><div class="heard" id="heard">마이크를 누르고 말하세요</div><div class="row"><button class="btn soft" onclick="typeInstead()">⌨ 쓰기로 답하기</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div>`
    :`<p class="mut">${noSrMsg()} 지금은 쓰기로 답하세요.${IOS?' (키보드에 스페인어를 추가하면 키보드 🎤 받아쓰기로도 입력할 수 있어요)':''}</p><textarea id="ans"></textarea>${accBar()}<div class="row"><button class="btn" onclick="checkText()">확인</button></div>`;
-  h+='<div id="out"></div></div>';app.innerHTML=h;if(q.kind==='repeat')setTimeout(()=>say(it.es),300);return}}
+  h+='<div id="out"></div></div>';app.innerHTML=h;if(q.kind==='repeat'&&autoOn())setTimeout(()=>say(it.es),300);return}}
 function accBar(){return`<div class="acc">${['á','é','í','ó','ú','ñ','ü','¿','¡'].map(c=>`<button onmousedown="event.preventDefault()" onclick="ins('${c}')">${c}</button>`).join('')}</div>`}
 function ins(c){const a=$('#ans');if(!a)return;const s=a.selectionStart??a.value.length,e=a.selectionEnd??a.value.length;a.value=a.value.slice(0,s)+c+a.value.slice(e);a.focus();a.selectionStart=a.selectionEnd=s+c.length}
 function nextBtn(extra){return`<div class="row">${extra||''}<button class="btn" id="nx" onclick="G.i++;render()">다음 →</button></div>`}
 function finish(ok,html,extra){const q=G.items[G.i];if(q.answered)return;q.answered=true;q.ok=ok;if(ok)G.ok++;G.log.push({id:q.item.id,ok});mark(q.item,ok);$('#out').innerHTML=html+nextBtn(extra);const nx=$('#nx');nx&&nx.scrollIntoView({behavior:'smooth',block:'nearest'})}
 function upgrade(){const q=G.items[G.i];if(q.ok)return;q.ok=true;G.ok++;const d=S.days[today()];if(d)d.ok++;if(S.miss[q.item.id]){S.miss[q.item.id]--;if(S.miss[q.item.id]<=0)delete S.miss[q.item.id]}save();$('.top .mut:last-child').textContent='✓ '+G.ok}
 
-function pickOpt(k){const q=G.items[G.i];if(q.answered)return;const right=q.opts.indexOf(q.item);document.querySelectorAll('.opt').forEach((b,i)=>{if(i===right)b.classList.add('ok');else if(i===k)b.classList.add('no')});const ok=k===right;say(q.item.es);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'아쉬워요'}</div><span class="es">${esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`);if(ok)setTimeout(()=>{if(G&&G.items[G.i]===q){G.i++;render()}},1100)}
-function checkSpell(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;const r=check(v,q.item);say(q.item.es);const msg=r.res==='ok'?'¡Perfecto! 정답':r.res==='mid'?'거의 맞았어요 — 강세·ñ만 확인':'아쉬워요';finish(r.res!=='no',`<div class="res ${r.res}"><div class="h">${msg}</div><span class="es">${r.res==='mid'?accentDiff(v,q.item.es):esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`)}
-function giveUp(){const q=G.items[G.i];const it=q.item;say(it.es);finish(false,`<div class="res no"><div class="h">정답</div><span class="es">${esc(q.kind==='word'?it.es:shown(it.es))}</span>${q.kind==='word'?' = '+esc(it.ko):''}${it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:''}</div>`)}
+function pickOpt(k){const q=G.items[G.i];if(q.answered)return;const right=q.opts.indexOf(q.item);document.querySelectorAll('.opt').forEach((b,i)=>{if(i===right)b.classList.add('ok');else if(i===k)b.classList.add('no')});const ok=k===right;sayAuto(q.item.es);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'아쉬워요'}</div><span class="es">${esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`);if(ok)setTimeout(()=>{if(G&&G.items[G.i]===q){G.i++;render()}},1100)}
+function checkSpell(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;const r=check(v,q.item);sayAuto(q.item.es);const msg=r.res==='ok'?'¡Perfecto! 정답':r.res==='mid'?'거의 맞았어요 — 강세·ñ만 확인':'아쉬워요';finish(r.res!=='no',`<div class="res ${r.res}"><div class="h">${msg}</div><span class="es">${r.res==='mid'?accentDiff(v,q.item.es):esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`)}
+function giveUp(){const q=G.items[G.i];const it=q.item;sayAuto(it.es);finish(false,`<div class="res no"><div class="h">정답</div><span class="es">${esc(q.kind==='word'?it.es:shown(it.es))}</span>${q.kind==='word'?' = '+esc(it.ko):''}${it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:''}</div>`)}
 
 function drawTiles(){const q=G.items[G.i];$('#slot').innerHTML=q.placed.map((ti,k)=>`<button class="tile" onclick="unplace(${k})">${esc(q.tiles[ti].t)}</button>`).join('')||'<span class="mut" style="padding:6px">여기에 문장이 만들어져요</span>';$('#tiles').innerHTML=q.tiles.map((t,i)=>`<button class="tile ${q.placed.includes(i)?'used':''}" onclick="place(${i})">${esc(t.t)}</button>`).join('')}
 function place(i){const q=G.items[G.i];if(q.answered||q.placed.includes(i))return;q.placed.push(i);drawTiles()}
 function unplace(k){const q=G.items[G.i];if(q.answered)return;q.placed.splice(k,1);drawTiles()}
-function checkBuild(){const q=G.items[G.i];if(!q.placed.length)return;const v=q.placed.map(i=>q.tiles[i].t).join(' ');const r=check(v,q.item);const ok=r.res!=='no';say(q.item.es);const d=diffHtml(v,r.best);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'순서를 다시 보세요'}</div>${ok?'':`<div>내 답: ${d.u}</div>`}<div class="es">${ok?esc(shown(r.best)):d.b}</div>${q.item.tip?`<div class="tip">💡 ${esc(q.item.tip)}</div>`:''}</div>`)}
+function checkBuild(){const q=G.items[G.i];if(!q.placed.length)return;const v=q.placed.map(i=>q.tiles[i].t).join(' ');const r=check(v,q.item);const ok=r.res!=='no';sayAuto(q.item.es);const d=diffHtml(v,r.best);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'순서를 다시 보세요'}</div>${ok?'':`<div>내 답: ${d.u}</div>`}<div class="es">${ok?esc(shown(r.best)):d.b}</div>${q.item.tip?`<div class="tip">💡 ${esc(q.item.tip)}</div>`:''}</div>`)}
 
 function hint(){const q=G.items[G.i];const w=shown(q.item.es).split(/\s+/);$('#heard').innerHTML=`힌트: <b>${esc(w[0])} ${w.length>2?esc(w[1]):''}</b> … (${w.length}단어)`}
-async function dictate(){const h=$('#heard');h.textContent='듣는 중… 말을 마치면 잠시 기다리세요';try{const alts=await listen(t=>h.textContent='🎙 '+t);if(!alts.length){h.textContent='잘 안 들렸어요. 다시 눌러 보세요';return}const q=G.items[G.i];let best=alts[0];for(const a of alts)if(check(a,q.item).res!=='no'){best=a;break}$('#ans').value=best;h.textContent='확인 버튼을 누르세요 (고쳐도 돼요)'}catch(e){h.textContent=micErr(e)}}
+async function dictate(){const h=$('#heard');h.textContent='듣는 중… 말을 마치면 잠시 기다리세요';try{const alts=await listen(t=>h.textContent='🎙 '+t);if(!alts.length){h.textContent=emptyMsg();return}const q=G.items[G.i];let best=alts[0];for(const a of alts)if(check(a,q.item).res!=='no'){best=a;break}$('#ans').value=best;h.textContent='확인 버튼을 누르세요 (고쳐도 돼요)'}catch(e){h.textContent=micErr(e)}}
 function micErr(e){const c=e.message;
  if(IOS&&(c==='not-allowed'||c==='service-not-allowed'))return'아이폰 설정이 필요해요: ① 설정 → 일반 → 키보드 → "받아쓰기 활성화" 켜기 ② 설정 → 앱 → Safari → 마이크 "허용" ③ 이 페이지를 새로고침';
  if(c==='not-allowed'||c==='service-not-allowed')return'마이크 권한이 꺼져 있어요. 주소창 왼쪽 자물쇠(또는 ⓘ) → 권한 → 마이크 허용 후 새로고침';
@@ -239,14 +251,15 @@ function micErr(e){const c=e.message;
  if(c==='network')return'음성인식 서버에 연결이 안 돼요. 인터넷 연결을 확인하세요';
  if(c==='language-not-supported')return'이 기기에서 스페인어 음성인식이 안 돼요';
  return'음성인식 오류: '+c}
+function emptyMsg(){return IOS?'소리가 안 잡혔어요. 🔊 소리가 끝나고 1초 뒤에 다시 눌러 보세요. 계속 안 되면 새로고침':'잘 안 들렸어요. 다시 눌러 보세요'}
 function noSrMsg(){if(INAPP)return'카카오톡 같은 앱 안에서 열려서 음성인식이 안 돼요. 위의 "브라우저로 열기"를 눌러 주세요.';if(IOS_OTHER)return'아이폰에서는 Safari로 열어야 음성인식이 돼요.';if(IOS)return'이 아이폰에서는 음성인식을 쓸 수 없어요. iOS를 업데이트하거나 Safari로 열어 주세요.';return'이 브라우저는 음성인식이 안 돼요. 크롬으로 열어 주세요.'}
 function openOut(){const u=location.href;if(/android/i.test(UA)&&/KAKAOTALK/i.test(UA)){location.href='intent://'+u.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';return}location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(u)}
 function inAppBanner(){return INAPP?`<div class="card" style="border-left:4px solid var(--yel)"><b>앱 안의 브라우저로 열렸어요</b><div class="mut">마이크·음성인식이 안 될 수 있어요. ${IOS?'Safari':'크롬'}로 열어 주세요.</div><div class="row"><button class="btn" onclick="openOut()">브라우저로 열기</button><button class="btn soft" onclick="copy(location.href).then(()=>toast('주소를 복사했어요'))">주소 복사</button></div></div>`:''}
 async function micTest(){const o=$('#mt');if(!SR){o.textContent=noSrMsg();return}o.textContent='"Hola, buenos días"라고 말해 보세요…';try{const a=await listen(t=>o.textContent='🎙 '+t);o.textContent=a.length?'✅ 들린 말: '+a[0]:'소리가 안 들렸어요. 다시 해 보세요'}catch(e){o.textContent='❌ '+micErr(e)+' (코드: '+e.message+')'}}
 function typeInstead(){const q=G.items[G.i];q.kind='write';render()}
 function checkText(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;judge(v)}
-async function speakNow(){const q=G.items[G.i];if(q.answered)return;const m=$('#mic'),h=$('#heard');if(REC){REC.stop();return}m.classList.add('on');h.textContent='듣는 중… (다 말하면 자동으로 끝나요)';try{const alts=await listen(t=>h.textContent='🎙 '+t);m.classList.remove('on');if(!alts.length){h.textContent='잘 안 들렸어요. 다시 눌러 보세요';return}let best=alts[0];for(const a of alts){if(check(a,q.item).res!=='no'){best=a;break}}h.textContent='들은 문장: '+best;judge(best,true)}catch(e){m.classList.remove('on');h.textContent=micErr(e)}}
-function judge(v,spoken){const q=G.items[G.i];const it=q.item;const r=check(v,it);say(r.best);const tip=it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:'';
+async function speakNow(){const q=G.items[G.i];if(q.answered)return;const m=$('#mic'),h=$('#heard');if(REC){REC.stop();return}m.classList.add('on');h.textContent='듣는 중… (다 말하면 자동으로 끝나요)';try{const alts=await listen(t=>h.textContent='🎙 '+t);m.classList.remove('on');if(!alts.length){h.textContent=emptyMsg();return}let best=alts[0];for(const a of alts){if(check(a,q.item).res!=='no'){best=a;break}}h.textContent='들은 문장: '+best;judge(best,true)}catch(e){m.classList.remove('on');h.textContent=micErr(e)}}
+function judge(v,spoken){const q=G.items[G.i];const it=q.item;const r=check(v,it);sayAuto(r.best);const tip=it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:'';
  if(r.res==='ok')return finish(true,`<div class="res ok"><div class="h">¡Perfecto! 정답</div><div class="es">${esc(shown(r.best))}</div>${otherAns(it,r.best)}${tip}</div>`);
  if(r.res==='mid')return finish(true,spoken?`<div class="res ok"><div class="h">¡Muy bien! 정답</div><div class="es">${esc(shown(r.best))}</div>${tip}</div>`:`<div class="res mid"><div class="h">거의 맞았어요 — 강세·ñ 확인</div><div class="es">${accentDiff(v,r.best)}</div>${tip}</div>`);
  const d=diffHtml(v,r.best);
@@ -264,6 +277,7 @@ async function shareLog(){const d=S.days[today()]||{n:0,ok:0};const t=`🇪🇸 
 function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>설정</h1>
 <label class="f">이름</label><input type="text" id="nm" value="${esc(S.name)}" maxlength="12">
 <label class="f">한 판 문제 수</label><div class="seg">${[8,12,20].map(n=>`<button class="${S.n===n?'on':''}" onclick="S.n=${n};save();settings()">${n}</button>`).join('')}</div>
+<label class="f">정답 자동으로 읽어 주기</label><div class="seg"><button class="${autoOn()?'on':''}" onclick="S.autoTTS=true;save();settings()">켜기</button><button class="${autoOn()?'':'on'}" onclick="S.autoTTS=false;save();settings()">끄기</button></div><div class="tip">아이폰은 소리가 난 직후 마이크가 막힐 수 있어서 기본이 '끄기'예요. 🔊 버튼은 언제든 눌러서 들을 수 있어요.</div>
 <label class="f">읽어 주는 속도</label><div class="seg">${[[0.65,'천천히'],[0.85,'보통'],[1,'빠르게']].map(([r,t])=>`<button class="${S.rate===r?'on':''}" onclick="S.rate=${r};save();say('Hola, ¿qué tal?');settings()">${t}</button>`).join('')}</div>
 <div class="card ai" style="margin-top:18px"><b>✨ Claude 첨삭·새 문장 (선택)</b><p class="mut" style="margin:6px 0">Anthropic API 키를 넣으면 이 앱 안에서 바로 첨삭받고 새 문장을 만들 수 있어요. 키는 이 휴대폰에만 저장되고 Anthropic 서버로만 보내져요. 키가 없어도 "Claude 앱에서 물어보기"로 똑같이 쓸 수 있어요.</p>
 <label class="f">API 키</label><input type="password" id="key" value="${esc(S.key)}" placeholder="sk-ant-…" autocomplete="off">
@@ -340,6 +354,8 @@ async function genAi(){if(!S.lessons.length)return toast('과를 먼저 고르�
  try{const r=await claude(p.sys,p.user,SCH_GEN);showAdded(addAi(r.sentences||[]))}catch(e){$('#gout').innerHTML=`<div class="tip">${esc(aiErr(e))}</div>`}}
 function pasteAi(){try{const t=$('#paste').value;const m=t.match(/\{[\s\S]*\}/);const r=JSON.parse(m?m[0]:t);showAdded(addAi(r.sentences||[]))}catch(e){toast('JSON을 읽지 못했어요. 통째로 붙여 넣었는지 확인하세요')}}
 
+// 아이폰: 첫 터치 때 소리 없는 읽기를 한 번 해서 읽어 주기 기능을 깨워 둠
+if(IOS&&'speechSynthesis' in window)document.addEventListener('touchend',function wake(){try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}document.removeEventListener('touchend',wake)},{once:true});
 home();
 </script>
 </body>
