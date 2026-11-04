@@ -126,7 +126,7 @@ function loadVoice(){const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>v.lan
 if('speechSynthesis' in window){loadVoice();speechSynthesis.onvoiceschanged=loadVoice}
 // 아이폰: 목소리를 직접 고르면(설치 안 된 목소리) 무음이 될 수 있어 lang만 지정.
 // 앞의 소리를 취소한 직후 바로 읽으면 묻히므로, 0.7초 안에 시작 안 하면 한 번 더 시도하고 그래도 안 되면 안내.
-function say(t,rate){if(!('speechSynthesis' in window)){toast('이 브라우저는 읽어 주기가 안 돼요');return}
+function say(t,rate){if(!('speechSynthesis' in window)){toast('이 브라우저는 읽어 주기가 안 돼요');return}unmute();
  const make=()=>{const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE&&!IOS)u.voice=VOICE;u.rate=rate||S.rate;u.onend=()=>LAST_TTS=Date.now();u.onerror=e=>{if(e.error!=='interrupted'&&e.error!=='canceled')toast('읽어 주기 오류: '+e.error)};return u};
  try{if(speechSynthesis.speaking||speechSynthesis.pending)speechSynthesis.cancel();if(speechSynthesis.paused)speechSynthesis.resume()}catch(e){}
  const u=make();let started=false;u.onstart=()=>{started=true};LAST_TTS=Date.now();speechSynthesis.speak(u);
@@ -155,9 +155,35 @@ function listen(onPart){return new Promise((res,rej)=>{if(!SR)return rej(new Err
  r.onresult=e=>{let txt='';for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript;if(e.results[i].isFinal)finals=[...e.results[i]].map(a=>a.transcript)}last=txt.trim();onPart&&onPart(txt);clearTimeout(first);clearTimeout(quiet);quiet=setTimeout(stopSoon,2500)};
  r.onerror=e=>{if(e.error==='no-speech'||e.error==='aborted')end(result());else fail(new Error(e.error))};
  r.onend=()=>end(result());
- const go=()=>{if(done)return;try{r.start()}catch(e){fail(e);return}first=setTimeout(stopSoon,9000);hard=setTimeout(stopSoon,15000)};
+ const go=()=>{if(done)return;if(IOS)audioMode('play-and-record');try{r.start()}catch(e){fail(e);return}first=setTimeout(stopSoon,9000);hard=setTimeout(stopSoon,15000)};
  const wait=IOS?(busy?600:Math.max(0,500-(Date.now()-LAST_TTS))):0;
  if(wait)setTimeout(go,wait);else go()})}
+
+/* ---------- 아이폰 무음 모드 대응 ---------- */
+// Safari 읽어 주기는 무음 스위치를 따름 → 소리 종류를 '미디어 재생'으로 바꾸고(Audio Session API), 소리 없는 짧은 음원을 먼저 재생
+function audioMode(m){try{if(navigator.audioSession)navigator.audioSession.type=m}catch(e){}}
+let SIL=null;
+function silentWav(){const sr=8000,n=1600,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
+function unmute(){if(!IOS)return;audioMode('playback');try{if(!SIL){SIL=new Audio(silentWav());SIL.setAttribute('playsinline','')}SIL.currentTime=0;const p=SIL.play();p&&p.catch(()=>{})}catch(e){}}
+// 천천히: 아이폰은 속도 값만 바꾸면 차이가 작아서 단어 사이를 쉼표로 끊어 읽음
+function saySlow(t){const txt=shown(t);if(IOS)say(txt.replace(/[,.;:]/g,'').split(/\s+/).join(', '),0.5);else say(txt,0.55)}
+
+/* ---------- Claude에게 묻기 (복사 + 열기) ---------- */
+const KIND_NAME={word:'단어 퀴즈',build:'문장 배열',write:'작문 (한국어 → 스페인어 쓰기)',speak:'말하기 (한국어 보고 스페인어로 말하기, 음성인식)',repeat:'따라 말하기 (음성인식)',drill:'바꿔 말하기'};
+const ASK_HEAD='나는 스페인어를 배우는 한국인 성인 초급 학습자야. 교재는 Curso de español 1이고 1~3과(인사·소개·ser, 외모·성격·tener, 위치·hay/estar·상태)를 배우고 있어.';
+function qText(q){const it=q.item,lines=[];
+ if(q.kind==='word'){lines.push(`[유형] 단어 퀴즈`,`[단어] ${it.es} = ${it.ko} (${it.l}과 · ${it.cat})`);if(q.user)lines.push(`[내 답] ${q.user}`)}
+ else{lines.push(`[유형] ${KIND_NAME[q.kind]||q.kind} · ${it.l}과`);
+  if(q.kind==='drill')lines.push(`[문제] "${shown(it.base)}"를 "${it.cue}"(으)로 바꾸기`);else lines.push(`[한국어] ${it.ko}`);
+  if(q.user)lines.push(`[내 답] ${q.user}${q.spoken?' (음성인식으로 들린 문장)':''}`);
+  lines.push(`[정답] ${[it.es,...(it.alts||[])].map(shown).join(' / ')}`);if(it.tip)lines.push(`[앱의 팁] ${it.tip}`)}
+ if(q.answered)lines.push(`[결과] ${q.ok?'맞음':'틀림'}`);return lines.join('\n')}
+function qAsk(q){if(q.kind==='word')return`${ASK_HEAD}\n아래 단어를 설명해 줘: 뜻과 쓰임, 남성/여성·복수형(명사·형용사면), 발음 팁, 교재 수준 예문 2개(한국어 해석 포함), 헷갈리기 쉬운 비슷한 단어. ${q.answered&&!q.ok?'내가 고른 답이 왜 틀렸는지도.':''} 한국어로 짧고 쉽게.\n\n${qText(q)}`;
+ return`${ASK_HEAD}\n아래 문제를 해설해 줘: ① 정답 문장을 단어별로 뜻과 문법(동사 변화·성수 일치·관사·어순) ② ${q.answered&&!q.ok?'내 답에서 틀린 곳과 이유, 고친 문장':'내 답이 자연스러운지, 더 자연스러운 표현이 있는지'} ③ 같은 문법으로 비슷한 예문 3개(한국어 해석 포함, 교재 수준). 한국어로 짧고 쉽게.\n\n${qText(q)}`}
+function askBox(text,where){copy(text).then(ok=>{const url='https://claude.ai/new'+(text.length<1800?'?q='+encodeURIComponent(text):'');$(where).innerHTML=`<div class="card ai" style="margin-top:8px">${ok?'질문을 복사했어요.':'복사가 안 됐어요. 아래 글을 길게 눌러 복사하세요.'} Claude가 열리면 질문이 들어가 있거나, 없으면 붙여 넣기 하세요.<div class="row"><a class="btn" href="${url}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Claude 열기 ↗</a></div>${ok?'':`<textarea readonly>${esc(text)}</textarea>`}</div>`})}
+function askQ(){askBox(qAsk(G.items[G.i]),'#askout')}
+function askDone(){const wrong=G.items.filter(q=>!q.ok);const list=wrong.length?wrong:G.items;const t=`${ASK_HEAD}\n방금 앱에서 ${MODE_NAME[G.mode]} ${G.items.length}문제를 풀었어. ${wrong.length?'틀린 문제 '+wrong.length+'개를':'모두 맞혔어. 푼 문제를'} 아래에 적을게.\n${wrong.length?'문제마다 ① 왜 틀렸는지 ② 정답의 문법 포인트를 짧게 해설해 주고, 마지막에 내가 자주 틀리는 점을 정리한 뒤 같은 문법으로 연습 문제 5개(한국어 → 스페인어, 정답은 맨 아래)를 내 줘.':'같은 문법으로 조금 더 어려운 연습 문제 5개(한국어 → 스페인어, 정답은 맨 아래)를 내 줘.'} 한국어로 쉽게.\n\n`+list.map((q,i)=>`${i+1}.\n${qText(q)}`).join('\n\n');askBox(t,'#askout')}
+function askLesson(l){const ss=allSent().filter(s=>s.l===l);const t=`${ASK_HEAD}\n${LESSONS[l].title}(${LESSONS[l].sub})의 핵심 문법을 아래 예문을 근거로 정리해 줘. 표 하나와 헷갈리는 점 3가지, 마지막에 확인 퀴즈 5개(정답은 맨 아래). 한국어로 쉽게.\n\n`+ss.slice(0,40).map(s=>`- ${shown(s.es)} (${s.ko})`).join('\n');askBox(t,'#ask'+l)}
 
 /* ---------- 기록 ---------- */
 function mark(item,ok){const d=S.days[today()]||(S.days[today()]={n:0,ok:0});d.n++;if(ok)d.ok++;if(!ok)S.miss[item.id]=(S.miss[item.id]||0)+1;else if(S.miss[item.id]){S.miss[item.id]--;if(S.miss[item.id]<=0)delete S.miss[item.id]}save()}
@@ -229,24 +255,24 @@ function render(){if(G.i>=G.items.length)return done();const q=G.items[G.i];q.an
   h+=`<textarea id="ans" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="여기에 쓰기 (강세 부호는 아래 버튼)"></textarea>${accBar()}<div class="row"><button class="btn" onclick="checkText()">확인</button>${SR?'<button class="btn ghost" onclick="dictate()">🎙 말로 입력</button>':''}<button class="btn soft" onclick="hint()">힌트</button></div><div class="heard" id="heard"></div><div id="out"></div></div>`;app.innerHTML=h;return}
  if(q.kind==='speak'||q.kind==='repeat'){
   if(q.kind==='speak')h+=`<div class="mut">스페인어로 말해 보세요 ${lvTag(it)}</div><div class="q">${esc(it.ko)}</div>`;
-  else h+=`<div class="mut">듣고 똑같이 말해 보세요 ${lvTag(it)}</div><div class="q es">${esc(shown(it.es))} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button> <button class="speak" title="천천히" onclick="say(G.items[G.i].item.es,0.6)">🐢</button></div><div class="mut">${esc(it.ko)}</div>`;
+  else h+=`<div class="mut">듣고 똑같이 말해 보세요 ${lvTag(it)}</div><div class="q es">${esc(shown(it.es))} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button> <button class="speak" title="천천히" onclick="saySlow(G.items[G.i].item.es)">🐢</button></div><div class="mut">${esc(it.ko)}</div>`;
   h+=SR?`<button class="mic" id="mic" onclick="speakNow()">🎙</button><div class="heard" id="heard">마이크를 누르고 말하세요</div><div class="row"><button class="btn soft" onclick="typeInstead()">⌨ 쓰기로 답하기</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div>`
    :`<p class="mut">${noSrMsg()} 지금은 쓰기로 답하세요.${IOS?' (키보드에 스페인어를 추가하면 키보드 🎤 받아쓰기로도 입력할 수 있어요)':''}</p><textarea id="ans"></textarea>${accBar()}<div class="row"><button class="btn" onclick="checkText()">확인</button></div>`;
   h+='<div id="out"></div></div>';app.innerHTML=h;if(q.kind==='repeat'&&autoOn())setTimeout(()=>say(it.es),300);return}}
 function accBar(){return`<div class="acc">${['á','é','í','ó','ú','ñ','ü','¿','¡'].map(c=>`<button onmousedown="event.preventDefault()" onclick="ins('${c}')">${c}</button>`).join('')}</div>`}
 function ins(c){const a=$('#ans');if(!a)return;const s=a.selectionStart??a.value.length,e=a.selectionEnd??a.value.length;a.value=a.value.slice(0,s)+c+a.value.slice(e);a.focus();a.selectionStart=a.selectionEnd=s+c.length}
 function nextBtn(extra){return`<div class="row">${extra||''}<button class="btn" id="nx" onclick="G.i++;render()">다음 →</button></div>`}
-function finish(ok,html,extra){const q=G.items[G.i];if(q.answered)return;q.answered=true;q.ok=ok;if(ok)G.ok++;G.log.push({id:q.item.id,ok});mark(q.item,ok);$('#out').innerHTML=html+nextBtn(extra);const nx=$('#nx');nx&&nx.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function finish(ok,html,extra){const q=G.items[G.i];if(q.answered)return;q.answered=true;q.ok=ok;if(ok)G.ok++;G.log.push({id:q.item.id,ok});mark(q.item,ok);$('#out').innerHTML=html+nextBtn(extra)+'<div class="row"><button class="btn soft" onclick="askQ()">📋 Claude에게 해설 묻기</button></div><div id="askout"></div>';const nx=$('#nx');nx&&nx.scrollIntoView({behavior:'smooth',block:'nearest'})}
 function upgrade(){const q=G.items[G.i];if(q.ok)return;q.ok=true;G.ok++;const d=S.days[today()];if(d)d.ok++;if(S.miss[q.item.id]){S.miss[q.item.id]--;if(S.miss[q.item.id]<=0)delete S.miss[q.item.id]}save();$('.top .mut:last-child').textContent='✓ '+G.ok}
 
-function pickOpt(k){const q=G.items[G.i];if(q.answered)return;const right=q.opts.indexOf(q.item);document.querySelectorAll('.opt').forEach((b,i)=>{if(i===right)b.classList.add('ok');else if(i===k)b.classList.add('no')});const ok=k===right;sayAuto(q.item.es);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'아쉬워요'}</div><span class="es">${esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`);if(ok)setTimeout(()=>{if(G&&G.items[G.i]===q){G.i++;render()}},1100)}
-function checkSpell(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;const r=check(v,q.item);sayAuto(q.item.es);const msg=r.res==='ok'?'¡Perfecto! 정답':r.res==='mid'?'거의 맞았어요 — 강세·ñ만 확인':'아쉬워요';finish(r.res!=='no',`<div class="res ${r.res}"><div class="h">${msg}</div><span class="es">${r.res==='mid'?accentDiff(v,q.item.es):esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`)}
-function giveUp(){const q=G.items[G.i];const it=q.item;sayAuto(it.es);finish(false,`<div class="res no"><div class="h">정답</div><span class="es">${esc(q.kind==='word'?it.es:shown(it.es))}</span>${q.kind==='word'?' = '+esc(it.ko):''}${it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:''}</div>`)}
+function pickOpt(k){const q=G.items[G.i];if(q.answered)return;const right=q.opts.indexOf(q.item);document.querySelectorAll('.opt').forEach((b,i)=>{if(i===right)b.classList.add('ok');else if(i===k)b.classList.add('no')});const ok=k===right;q.user=q.t==='ko2es'?q.opts[k].es:q.opts[k].ko;sayAuto(q.item.es);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'아쉬워요'}</div><span class="es">${esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`)}
+function checkSpell(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;q.user=v;const r=check(v,q.item);sayAuto(q.item.es);const msg=r.res==='ok'?'¡Perfecto! 정답':r.res==='mid'?'거의 맞았어요 — 강세·ñ만 확인':'아쉬워요';finish(r.res!=='no',`<div class="res ${r.res}"><div class="h">${msg}</div><span class="es">${r.res==='mid'?accentDiff(v,q.item.es):esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`)}
+function giveUp(){const q=G.items[G.i];const it=q.item;q.user='(모르겠어요)';sayAuto(it.es);finish(false,`<div class="res no"><div class="h">정답</div><span class="es">${esc(q.kind==='word'?it.es:shown(it.es))}</span>${q.kind==='word'?' = '+esc(it.ko):''}${it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:''}</div>`)}
 
 function drawTiles(){const q=G.items[G.i];$('#slot').innerHTML=q.placed.map((ti,k)=>`<button class="tile" onclick="unplace(${k})">${esc(q.tiles[ti].t)}</button>`).join('')||'<span class="mut" style="padding:6px">여기에 문장이 만들어져요</span>';$('#tiles').innerHTML=q.tiles.map((t,i)=>`<button class="tile ${q.placed.includes(i)?'used':''}" onclick="place(${i})">${esc(t.t)}</button>`).join('')}
 function place(i){const q=G.items[G.i];if(q.answered||q.placed.includes(i))return;q.placed.push(i);drawTiles()}
 function unplace(k){const q=G.items[G.i];if(q.answered)return;q.placed.splice(k,1);drawTiles()}
-function checkBuild(){const q=G.items[G.i];if(!q.placed.length)return;const v=q.placed.map(i=>q.tiles[i].t).join(' ');const r=check(v,q.item);const ok=r.res!=='no';sayAuto(q.item.es);const d=diffHtml(v,r.best);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'순서를 다시 보세요'}</div>${ok?'':`<div>내 답: ${d.u}</div>`}<div class="es">${ok?esc(shown(r.best)):d.b}</div>${q.item.tip?`<div class="tip">💡 ${esc(q.item.tip)}</div>`:''}</div>`)}
+function checkBuild(){const q=G.items[G.i];if(!q.placed.length)return;const v=q.placed.map(i=>q.tiles[i].t).join(' ');q.user=v;const r=check(v,q.item);const ok=r.res!=='no';sayAuto(q.item.es);const d=diffHtml(v,r.best);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'순서를 다시 보세요'}</div>${ok?'':`<div>내 답: ${d.u}</div>${confuseTip(v,r.best)}`}<div class="es">${ok?esc(shown(r.best)):d.b}</div>${q.item.tip?`<div class="tip">💡 ${esc(q.item.tip)}</div>`:''}</div>`)}
 
 function hint(){const q=G.items[G.i];const w=shown(q.item.es).split(/\s+/);$('#heard').innerHTML=`힌트: <b>${esc(w[0])} ${w.length>2?esc(w[1]):''}</b> … (${w.length}단어)`}
 async function dictate(){const h=$('#heard');h.textContent='듣는 중… 말을 마치면 잠시 기다리세요';try{const alts=await listen(t=>h.textContent='🎙 '+t);if(!alts.length){h.textContent=emptyMsg();return}const q=G.items[G.i];let best=alts[0];for(const a of alts)if(check(a,q.item).res!=='no'){best=a;break}$('#ans').value=best;h.textContent='확인 버튼을 누르세요 (고쳐도 돼요)'}catch(e){h.textContent=micErr(e)}}
@@ -265,19 +291,33 @@ async function micTest(){const o=$('#mt');if(!SR){o.textContent=noSrMsg();return
 function typeInstead(){const q=G.items[G.i];q.kind='write';render()}
 function checkText(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;judge(v)}
 async function speakNow(){const q=G.items[G.i];if(q.answered)return;const m=$('#mic'),h=$('#heard');if(REC){REC.stop();return}m.classList.add('on');h.textContent='듣는 중… (다 말하면 자동으로 끝나요)';try{const alts=await listen(t=>h.textContent='🎙 '+t);m.classList.remove('on');if(!alts.length){h.textContent=emptyMsg();return}let best=alts[0];for(const a of alts){if(check(a,q.item).res!=='no'){best=a;break}}h.textContent='들은 문장: '+best;judge(best,true)}catch(e){m.classList.remove('on');h.textContent=micErr(e)}}
-function judge(v,spoken){const q=G.items[G.i];const it=q.item;const r=check(v,it);sayAuto(r.best);const tip=it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:'';
+function judge(v,spoken){const q=G.items[G.i];q.user=v;q.spoken=!!spoken;const it=q.item;const r=check(v,it);sayAuto(r.best);const tip=it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:'';
  if(r.res==='ok')return finish(true,`<div class="res ok"><div class="h">¡Perfecto! 정답</div><div class="es">${esc(shown(r.best))}</div>${otherAns(it,r.best)}${tip}</div>`);
  if(r.res==='mid')return finish(true,spoken?`<div class="res ok"><div class="h">¡Muy bien! 정답</div><div class="es">${esc(shown(r.best))}</div>${tip}</div>`:`<div class="res mid"><div class="h">거의 맞았어요 — 강세·ñ 확인</div><div class="es">${accentDiff(v,r.best)}</div>${tip}</div>`);
  const d=diffHtml(v,r.best);
- finish(false,`<div class="res no"><div class="h">${spoken?'조금 달라요':'다시 볼까요?'}</div><div>내 답: ${d.u}</div><div class="es" style="margin-top:4px">정답: ${d.b} <button class="speak" onclick="say(${esc(JSON.stringify(r.best))})">🔊</button></div>${otherAns(it,r.best)}${tip}<div id="aiout"></div></div>`,`<button class="btn ghost" onclick="aiCheck(${esc(JSON.stringify(v))})">✨ 내 문장도 맞나요?</button>`)}
+ finish(false,`<div class="res no"><div class="h">${spoken?'조금 달라요':'다시 볼까요?'}</div><div>내 답: ${d.u}</div>${confuseTip(v,r.best)}<div class="es" style="margin-top:4px">정답: ${d.b} <button class="speak" onclick="say(${esc(JSON.stringify(r.best))})">🔊</button></div>${otherAns(it,r.best)}${tip}<div id="aiout"></div></div>`,`<button class="btn ghost" onclick="aiCheck(${esc(JSON.stringify(v))})">✨ 내 문장도 맞나요?</button>`)}
+// 자주 헷갈리는 짝: 내 답에 앞쪽 단어가 있고 정답엔 뒤쪽 단어가 있으면 차이를 설명
+const CONFUSE=[[['novia','novio'],['amiga','amigo'],'amigo/amiga = 친구, novio/novia = 애인(남자 친구·여자 친구)'],
+ [['amiga','amigo'],['novia','novio'],'amigo/amiga = 친구, novio/novia = 애인(남자 친구·여자 친구)'],
+ [['es','son','soy','eres','somos','sois'],['esta','estan','estoy','estas','estamos','estais'],'ser(es·son…)는 원래 그런 것(국적·직업·성격·외모), estar(está·están…)는 위치와 지금 상태'],
+ [['esta','estan','estoy','estas','estamos','estais'],['es','son','soy','eres','somos','sois'],'ser(es·son…)는 원래 그런 것(국적·직업·성격·외모), estar(está·están…)는 위치와 지금 상태'],
+ [['hay'],['esta','estan'],'hay = (처음 말하는 것이) 있다 / está·están = (아는 그것이) 어디에 있다'],
+ [['esta','estan'],['hay'],'hay = (처음 말하는 것이) 있다 / está·están = (아는 그것이) 어디에 있다'],
+ [['estoy','esta','estas','estamos','estan'],['tengo','tiene','tienes','tenemos','tienen'],'배고픔·목마름·추위·더위·졸림·급함은 estar가 아니라 tener + 명사 (Tengo hambre)'],
+ [['soy','es','eres'],['tengo','tiene','tienes'],'나이는 ser가 아니라 tener (Tengo treinta años)'],
+ [['muy'],['mucho','mucha'],'muy + 형용사 (muy cansado), mucho/mucha + 명사 (mucha hambre)'],
+ [['mucho','mucha'],['muy'],'muy + 형용사 (muy cansado), mucho/mucha + 명사 (mucha hambre)'],
+ [['y'],['e'],'i 소리로 시작하는 단어 앞에서는 y 대신 e (español e inglés)']];
+function confuseTip(user,best){const u=new Set(flat(user).split(' ')),b=new Set(flat(best).split(' '));const out=[];for(const [x,y,msg] of CONFUSE){if(x.some(t=>u.has(t)&&!b.has(t))&&y.some(t=>b.has(t)&&!u.has(t))&&!out.includes(msg))out.push(msg)}return out.map(m=>'<div class="tip" style="color:var(--no)">⚠ 헷갈림 주의: '+esc(m)+'</div>').join('')}
 function otherAns(it,best){const o=[it.es,...(it.alts||[])].map(shown).filter((v,i,a)=>a.indexOf(v)===i&&flat(v)!==flat(best));return o.length?`<div class="tip">이렇게도 돼요: ${o.map(esc).join(' / ')}</div>`:''}
 
 function done(){const n=G.items.length,ok=G.ok;const wrong=G.items.filter(q=>!q.ok);app.innerHTML=`<h1>${ok===n?'¡Perfecto! 🎉':ok>=n*0.7?'¡Muy bien! 👏':'¡Ánimo! 💪'}</h1><div class="stat"><div><b>${ok} / ${n}</b><span class="mut">맞힌 문제</span></div><div><b>${(S.days[today()]||{n:0}).n}</b><span class="mut">오늘 전체</span></div></div>
 ${wrong.length?`<h2>틀린 문제 (오답 노트에 저장됨)</h2><div class="card"><ul class="list">${wrong.map(q=>`<li>${q.kind==='drill'?esc(shown(q.item.base))+' → '+esc(q.item.cue):esc(q.item.ko)}<br><span class="es">${esc(q.kind==='word'?q.item.es:shown(q.item.es))}</span> <button class="speak" onclick='say(${esc(JSON.stringify(q.item.es))})'>🔊</button></li>`).join('')}</ul></div>`:''}
+<div class="row"><button class="btn soft" onclick="askDone()">📋 ${wrong.length?'틀린 문제 Claude에게 해설 묻기':'Claude에게 연습 문제 더 받기'}</button></div><div id="askout"></div>
 <div class="row"><button class="btn" onclick="start('${G.mode}')">한 판 더</button><button class="btn soft" onclick="home()">처음으로</button></div>`}
 
 /* ---------- 목록·공유·설정 ---------- */
-function sentList(){const ss=allSent().filter(inL);app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>문장 목록</h1><p class="mut">선택한 과의 문장 ${ss.length}개. 🔊를 누르면 들려줘요.</p>${S.lessons.map(l=>`<h2>${LESSONS[l].title}</h2><div class="card"><ul class="list">${ss.filter(s=>s.l===l).map(s=>`<li>${lvTag(s)}${esc(s.ko)}<br><span class="es">${esc(shown(s.es))}</span> <button class="speak" onclick='say(${esc(JSON.stringify(s.es))})'>🔊</button>${s.ai?` <button class="icon" style="padding:2px 8px" onclick="delAi('${s.id}')">삭제</button>`:''}</li>`).join('')}</ul></div>`).join('')}`}
+function sentList(){const ss=allSent().filter(inL);app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>문장 목록</h1><p class="mut">선택한 과의 문장 ${ss.length}개. 🔊를 누르면 들려줘요.</p>${S.lessons.map(l=>`<h2>${LESSONS[l].title}</h2><button class="btn soft" onclick="askLesson(${l})">📋 이 과 문법 Claude에게 정리 받기</button><div id="ask${l}"></div><div class="card"><ul class="list">${ss.filter(s=>s.l===l).map(s=>`<li>${lvTag(s)}${esc(s.ko)}<br><span class="es">${esc(shown(s.es))}</span> <button class="speak" onclick='say(${esc(JSON.stringify(s.es))})'>🔊</button>${s.ai?` <button class="icon" style="padding:2px 8px" onclick="delAi('${s.id}')">삭제</button>`:''}</li>`).join('')}</ul></div>`).join('')}`}
 function delAi(id){if(!confirm('이 AI 문장을 지울까요?'))return;S.ai=S.ai.filter(a=>a.id!==id);delete S.miss[id];save();sentList()}
 async function shareLog(){const d=S.days[today()]||{n:0,ok:0};const t=`🇪🇸 ${S.name} · ${today().slice(5).replace('-','/')} 스페인어 연습\n오늘 ${d.n}문제 (맞힘 ${d.ok}) · 연속 ${streak()}일째${Object.keys(S.miss).length?`\n오답 노트 ${Object.keys(S.miss).length}개 남음`:''}`;if(navigator.share){try{await navigator.share({text:t});return}catch(e){}}if(await copy(t))toast('복사했어요. 단톡방에 붙여 넣으세요')}
 function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>설정</h1>
@@ -293,7 +333,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <div class="row"><button class="btn soft" onclick="if(confirm('오늘 기록·오답 노트·AI 문장을 모두 지울까요?')){localStorage.removeItem(KEY);location.reload()}">기록 모두 지우기</button></div>
 <div class="card"><b>🎙 마이크 테스트</b><div class="row"><button class="btn soft" onclick="micTest()">테스트 시작</button></div><div id="mt" class="mut" style="margin-top:8px">${SR?'':esc(noSrMsg())}</div>
 <div class="tip">아이폰: Safari로 열고, 설정 → 일반 → 키보드 → "받아쓰기 활성화"를 켜야 해요. 그래도 안 되면 문제 화면의 "⌨ 쓰기로 답하기"에서 키보드 🎤(스페인어 키보드)로 말해도 돼요.</div></div>
-<p class="mut">버전 11-05c · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut">버전 11-05d · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 /* ---------- Claude ---------- */
 let SDK=null;

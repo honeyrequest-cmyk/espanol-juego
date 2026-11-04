@@ -56,12 +56,16 @@ const SENT_RAW = {
 2|나는 기자가 아니야. 작가야. (남)|(Yo) no soy periodista. Soy escritor.|(Yo) no soy periodista, soy escritor.|no는 동사 바로 앞
 2|선생님이세요? — 아니요, 저는 학생이에요. (남자에게)|¿Es usted profesor? No, soy estudiante.|¿Usted es profesor? No, soy estudiante.;¿Es profesor? No, soy estudiante.|
 2|제 이름은 김민지이고, 한국에서 왔어요.|Me llamo Minji Kim y soy de Corea.|Mi nombre es Minji Kim y soy de Corea.;Me llamo Kim Minji y soy de Corea.|
-2|이 사람은 내 가장 친한 친구야. 일본 사람이야. (여)|Esta es mi mejor amiga. Es japonesa.||
+2|이 사람은 내 가장 친한 친구야. 일본 사람이야. (친구가 여자)|Esta es mi mejor amiga. Es japonesa.||
 2|그는 산업 디자이너이고 회사에서 일해요.|(Él) es diseñador industrial y trabaja en una empresa.||
 2|저희는 캐나다 출신이 아니라 미국 출신이에요.|No somos de Canadá, somos de Estados Unidos.|No somos de Canadá. Somos de Estados Unidos.|
 2|당신은 무슨 일을 하세요?|¿A qué se dedica usted?|¿A qué se dedica?|
 2|나는 학교에서 일하고 스페인어를 공부해.|(Yo) trabajo en una escuela y estudio español.|(Yo) trabajo en la escuela y estudio español.|estudiar = 공부하다 (규칙 동사 hablar와 같은 모양)
 2|안녕히 주무세요. 내일 봐요!|Buenas noches. ¡Hasta mañana!||
+2|이 사람은 내 애인이에요. (여자 친구)|Esta es mi novia.||애인은 novio/novia, 그냥 친구는 amigo/amiga
+2|아나는 내 애인이 아니라 그냥 친구야.|Ana no es mi novia, es mi amiga.|Ana no es mi novia. Es mi amiga.|novia = 애인, amiga = 친구
+2|카를로스는 내 애인이에요. (남자 친구)|Carlos es mi novio.||
+2|카를로스는 그냥 친구예요. 애인이 아니에요.|Carlos es solo un amigo. No es mi novio.|Carlos es solo mi amigo. No es mi novio.;Carlos solo es un amigo. No es mi novio.;Carlos es solo un amigo, no es mi novio.|solo = 단지, 그냥
 `,
 2: `
 1|너는 어떤 사람이야?|¿Cómo eres?|¿Cómo eres tú?|
@@ -86,7 +90,7 @@ const SENT_RAW = {
 1|그 남자는 나이가 많아요.|El hombre es mayor.||
 1|별들은 노란색이에요.|Las estrellas son amarillas.||복수 명사 → 형용사도 복수
 1|나는 키가 중간이야.|(Yo) soy de estatura mediana.||
-2|나의 가장 친한 친구는 키가 크고 아주 상냥해. (남)|Mi mejor amigo es alto y muy simpático.||
+2|나의 가장 친한 친구는 키가 크고 아주 상냥해. (친구가 남자)|Mi mejor amigo es alto y muy simpático.||
 2|내 여동생은 키가 작지만 운동을 아주 잘해.|Mi hermana es baja, pero es muy atlética.|Mi hermana es baja, pero muy atlética.|pero = 하지만
 2|우리 선생님은 진지하지만 웃겨요. (남)|Mi profesor es serio, pero cómico.|Nuestro profesor es serio, pero cómico.;Mi profesor es serio, pero es cómico.|
 2|너는 낙천적이니, 비관적이니?|¿Eres optimista o pesimista?||-ista로 끝나는 형용사는 남녀 같음
@@ -183,7 +187,7 @@ const DRILL_RAW = `
 1|(Yo) me llamo Ana.|너 / Pablo|(Tú) te llamas Pablo.|
 1|¿De dónde eres?|usted에게|¿De dónde es usted?|¿De dónde es?
 1|(Yo) trabajo en un hospital.|그녀 / 약국|(Ella) trabaja en una farmacia.|(Ella) trabaja en la farmacia.
-1|Este es mi amigo.|여자 친구 소개|Esta es mi amiga.|
+1|Este es mi amigo.|친구가 여자일 때 (애인 아님)|Esta es mi amiga.|
 2|(Él) es alto.|그녀들|(Ellas) son altas.|
 2|Mi hermano es simpático.|내 여동생|Mi hermana es simpática.|
 2|(Yo) tengo veinte años.|그녀|(Ella) tiene veinte años.|
@@ -220,4 +224,6 @@ const DRILL_RAW = `
 3|(Ella) tiene hambre.|나 / 무척|(Yo) tengo mucha hambre.|
 3|El parque está cerca de la escuela.|은행 / 병원 옆|El banco está al lado del hospital.|
 3|La televisión está apagada.|컴퓨터|El ordenador está apagado.|La computadora está apagada.
+1|Este es mi amigo.|친구가 아니라 애인(남)으로|Este es mi novio.|
+1|Esta es mi amiga.|친구가 아니라 애인(여)으로|Esta es mi novia.|
 `;
