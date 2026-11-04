@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#b4372b">
+<title>¡Vamos! 스페인어 연습</title>
+<style>
+:root{--red:#b4372b;--red2:#e9d2cd;--yel:#f2b705;--ink:#24211f;--mut:#7a726b;--bg:#faf7f2;--card:#fff;--line:#e6e0d8;--ok:#2e7d4f;--okbg:#e5f3ea;--no:#c0392b;--nobg:#fbe9e7;--mid:#a86b00;--midbg:#fff4d6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;font-size:17px;line-height:1.5}
+#app{max-width:540px;margin:0 auto;padding:14px 14px 90px}
+h1{font-size:1.45rem;margin:.2em 0 .1em}
+h2{font-size:1.1rem;margin:1.2em 0 .5em}
+.mut{color:var(--mut);font-size:.88rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.icon{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 10px;font-size:.9rem;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:.92rem;cursor:pointer}
+.chip.on{border-color:var(--red);background:var(--red2);color:var(--red);font-weight:600}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode{background:#fff;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:12px;padding:12px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.mode b{display:block;font-size:1rem}
+.mode span{font-size:.8rem;color:var(--mut)}
+.mode.wide{grid-column:1/3;border-left-color:var(--yel)}
+.btn{display:inline-block;border:none;border-radius:12px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer;background:var(--red);color:#fff}
+.btn.full{width:100%}
+.btn.ghost{background:#fff;color:var(--red);border:1.5px solid var(--red)}
+.btn.soft{background:#f1ece5;color:var(--ink)}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row .btn{flex:1}
+.bar{height:6px;background:#ece6de;border-radius:4px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--red)}
+.q{font-size:1.25rem;font-weight:600;margin:6px 0}
+.es{font-size:1.2rem}
+.tag{display:inline-block;font-size:.72rem;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--mut);margin-right:4px}
+.opts{display:grid;gap:8px;margin-top:10px}
+.opt{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:12px;font:inherit;text-align:left;cursor:pointer;color:inherit}
+.opt.ok{border-color:var(--ok);background:var(--okbg)}
+.opt.no{border-color:var(--no);background:var(--nobg)}
+textarea,input[type=text],input[type=password],select{width:100%;font:inherit;border:1.5px solid var(--line);border-radius:12px;padding:10px;background:#fff;color:inherit}
+textarea{min-height:76px;resize:vertical}
+textarea:focus,input:focus{outline:none;border-color:var(--red)}
+.acc{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.acc button{border:1px solid var(--line);background:#fff;border-radius:8px;min-width:38px;padding:6px;font:inherit;cursor:pointer}
+.slot{min-height:56px;border:1.5px dashed var(--line);border-radius:12px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;background:#fff}
+.tiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tile{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:7px 11px;font:inherit;cursor:pointer}
+.tile.used{visibility:hidden}
+.slot .tile{border-color:var(--red);color:var(--red)}
+.res{border-radius:12px;padding:12px;margin-top:10px}
+.res.ok{background:var(--okbg);border:1px solid #b9dcc6}
+.res.mid{background:var(--midbg);border:1px solid #f0d58c}
+.res.no{background:var(--nobg);border:1px solid #f1c3bc}
+.res .h{font-weight:700;margin-bottom:4px}
+.w-x{color:var(--no);text-decoration:line-through}
+.w-m{color:var(--no);font-weight:700;text-decoration:underline}
+.mic{width:84px;height:84px;border-radius:50%;border:none;background:var(--red);color:#fff;font-size:2rem;cursor:pointer;display:block;margin:14px auto 6px;box-shadow:0 4px 14px rgba(180,55,43,.3)}
+.mic.on{animation:pulse 1.1s infinite;background:#d14a3c}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(180,55,43,.45)}100%{box-shadow:0 0 0 22px rgba(180,55,43,0)}}
+.heard{min-height:1.6em;text-align:center;color:var(--mut)}
+.speak{border:none;background:none;font-size:1.25rem;cursor:pointer;padding:0 4px;vertical-align:middle}
+.tip{font-size:.86rem;color:var(--mut);margin-top:6px}
+.stat{display:flex;gap:10px}
+.stat div{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:1.3rem}
+.list{margin:0;padding:0;list-style:none}
+.list li{border-bottom:1px solid var(--line);padding:8px 0;font-size:.95rem}
+.list li:last-child{border:none}
+.ai{border-left:4px solid var(--yel)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid #ddd;border-top-color:var(--red);border-radius:50%;animation:sp 1s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#fff;color:var(--ink);border:1.5px solid var(--red);padding:10px 16px;border-radius:12px;font-size:.95rem;z-index:9;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+label.f{display:block;margin:12px 0 4px;font-weight:600;font-size:.92rem}
+.seg{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{flex:1;border:none;background:#fff;padding:9px;font:inherit;cursor:pointer}
+.seg button.on{background:var(--red2);color:var(--red);font-weight:600}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="words.js"></script>
+<script src="data.js"></script>
+<script>
+'use strict';
+/* ---------- 저장 ---------- */
+const KEY='esj-v1';
+const S=Object.assign({name:'',lessons:[1,2,3],key:'',model:'claude-opus-5-5',rate:0.85,miss:{},alts:{},ai:[],days:{},n:12},JSON.parse(localStorage.getItem(KEY)||'{}'));
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+
+/* ---------- 데이터 정리 ---------- */
+const SENT=[];
+for(const l in SENT_RAW){SENT_RAW[l].trim().split('\n').forEach((line,i)=>{const [lv,ko,es,alts,tip]=line.split('|');SENT.push({id:`s${l}-${i}`,l:+l,lv:+lv,ko,es,alts:(alts||'').split(';').filter(Boolean),tip:tip||''})})}
+const DRILL=DRILL_RAW.trim().split('\n').map((line,i)=>{const [l,base,cue,ans,alts,tip]=line.split('|');return{id:`d${i}`,l:+l,base,cue,es:ans,alts:(alts||'').split(';').filter(Boolean),tip:tip||''}});
+const WORD=[];
+for(const l in WORDS)WORDS[l].forEach(([es,ko,cat],i)=>WORD.push({id:`w${l}-${i}`,l:+l,es,ko,cat}));
+const allSent=()=>SENT.concat(S.ai.map(a=>Object.assign({ai:true},a)));
+const inL=x=>S.lessons.includes(x.l);
+const byId=id=>allSent().find(s=>s.id===id)||DRILL.find(d=>d.id===id)||WORD.find(w=>w.id===id);
+
+/* ---------- 문자열 비교 ---------- */
+const NUM={0:'cero',1:'uno',2:'dos',3:'tres',4:'cuatro',5:'cinco',6:'seis',7:'siete',8:'ocho',9:'nueve',10:'diez',11:'once',12:'doce',13:'trece',14:'catorce',15:'quince',16:'dieciséis',17:'diecisiete',18:'dieciocho',19:'diecinueve',20:'veinte',21:'veintiuno',22:'veintidós',23:'veintitrés',24:'veinticuatro',25:'veinticinco',26:'veintiséis',27:'veintisiete',28:'veintiocho',29:'veintinueve'};
+const TENS={30:'treinta',40:'cuarenta',50:'cincuenta',60:'sesenta',70:'setenta',80:'ochenta',90:'noventa'};
+function numWord(n){n=+n;if(n in NUM)return NUM[n];if(n===100)return'cien';if(n<100){const t=Math.floor(n/10)*10,u=n%10;return TENS[t]+(u?' y '+NUM[u]:'')}return String(n)}
+function norm(s){return s.toLowerCase().replace(/\d+/g,m=>numWord(m)).replace(/[¿¡?!.,;:—–"“”«»()…]/g,' ').replace(/\s-\s|-/g,' ').replace(/\s+/g,' ').trim()}
+const flat=s=>norm(s).normalize('NFD').replace(/[̀-ͯ]/g,'');
+function variants(s){const parts=[];const re=/\(([^)]+)\)\s*/g;let m,last=0;const segs=[];while((m=re.exec(s))){segs.push(s.slice(last,m.index));segs.push({opt:m[0]});last=re.lastIndex}segs.push(s.slice(last));const opts=segs.filter(x=>typeof x!=='string').length;const out=[];for(let mask=0;mask<(1<<opts);mask++){let k=0,t='';for(const g of segs){if(typeof g==='string')t+=g;else{if(mask&(1<<k))t+=g.opt.replace(/[()]/g,'');k++}}out.push(t)}return out}
+function shown(s){let t=variants(s)[0].trim();return t.replace(/^([¿¡]*)(\p{L})/u,(a,p,c)=>p+c.toUpperCase())}
+function answers(item){const base=[item.es,...(item.alts||[]),...(S.alts[item.id]||[])];return base.flatMap(variants)}
+function lcs(a,b){const m=a.length,n=b.length,d=Array.from({length:m+1},()=>new Array(n+1).fill(0));for(let i=m-1;i>=0;i--)for(let j=n-1;j>=0;j--)d[i][j]=a[i]===b[j]?d[i+1][j+1]+1:Math.max(d[i+1][j],d[i][j+1]);const ka=new Set,kb=new Set;let i=0,j=0;while(i<m&&j<n){if(a[i]===b[j]){ka.add(i);kb.add(j);i++;j++}else if(d[i+1][j]>=d[i][j+1])i++;else j++}return{len:d[0][0],ka,kb}}
+function check(user,item){const ans=answers(item);const nu=norm(user),fu=flat(user);for(const a of ans)if(norm(a)===nu)return{res:'ok',best:a};for(const a of ans)if(flat(a)===fu)return{res:'mid',best:a};let best=ans[0],bs=-1;const uw=fu.split(' ');for(const a of ans){const r=lcs(uw,flat(a).split(' '));const sc=r.len*2-flat(a).split(' ').length;if(sc>bs){bs=sc;best=a}}return{res:'no',best}}
+function diffHtml(user,best){const uw=norm(user).split(' ').filter(Boolean),bw=shown(best).split(/\s+/);const r=lcs(uw.map(w=>w.normalize('NFD').replace(/[̀-ͯ]/g,'')),bw.map(w=>flat(w)));const u=uw.map((w,i)=>r.ka.has(i)?esc(w):`<span class="w-x">${esc(w)}</span>`).join(' ');const b=bw.map((w,i)=>r.kb.has(i)?esc(w):`<span class="w-m">${esc(w)}</span>`).join(' ');return{u,b}}
+function accentDiff(user,best){const uw=user.trim().split(/\s+/),bw=shown(best).split(/\s+/);return bw.map((w,i)=>{const x=uw[i]||'';return(norm(x)!==norm(w)&&flat(x)===flat(w))?`<span class="w-m">${esc(w)}</span>`:esc(w)}).join(' ')}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const pick=(a,n)=>shuffle(a).slice(0,n);
+
+/* ---------- 소리 ---------- */
+let VOICE=null;
+function loadVoice(){const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>v.lang==='es-ES'&&/google/i.test(v.name))||vs.find(v=>v.lang==='es-ES')||vs.find(v=>/^es/.test(v.lang))||null}
+if('speechSynthesis' in window){loadVoice();speechSynthesis.onvoiceschanged=loadVoice}
+function say(t,rate){if(!('speechSynthesis' in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE)u.voice=VOICE;u.rate=rate||S.rate;speechSynthesis.speak(u)}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let REC=null;
+function listen(onPart){return new Promise((res,rej)=>{if(!SR)return rej(new Error('nosr'));speechSynthesis&&speechSynthesis.cancel();const r=new SR();REC=r;r.lang='es-ES';r.interimResults=true;r.continuous=false;r.maxAlternatives=4;let finals=[];let got=false;
+ r.onresult=e=>{let txt='';for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript;if(e.results[i].isFinal){got=true;finals=[...e.results[i]].map(a=>a.transcript)}}onPart&&onPart(txt)};
+ r.onerror=e=>{REC=null;if(e.error==='no-speech'||e.error==='aborted')res([]);else rej(new Error(e.error))};
+ r.onend=()=>{REC=null;res(finals)};
+ try{r.start()}catch(e){rej(e)}
+ setTimeout(()=>{try{r.stop()}catch(e){}},20000)})}
+
+/* ---------- 기록 ---------- */
+function mark(item,ok){const d=S.days[today()]||(S.days[today()]={n:0,ok:0});d.n++;if(ok)d.ok++;if(!ok)S.miss[item.id]=(S.miss[item.id]||0)+1;else if(S.miss[item.id]){S.miss[item.id]--;if(S.miss[item.id]<=0)delete S.miss[item.id]}save()}
+function streak(){let n=0;const d=new Date();if(!S.days[today()])d.setDate(d.getDate()-1);for(;;){const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');if(S.days[k]&&S.days[k].n)n++;else break;d.setDate(d.getDate()-1)}return n}
+function toast(t){const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),2200)}
+async function copy(t){try{await navigator.clipboard.writeText(t);return true}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();const ok=document.execCommand('copy');a.remove();return ok}}
+
+/* ---------- 화면 ---------- */
+const $=s=>document.querySelector(s);
+const app=$('#app');
+let G=null; // 진행 중인 판
+
+function home(){G=null;if(!S.name)return setup();const d=S.days[today()]||{n:0,ok:0};const miss=Object.keys(S.miss).filter(id=>byId(id)).length;
+app.innerHTML=`
+<div class="top"><div class="sp"><h1>¡Vamos! 🇪🇸</h1><div class="mut">${esc(S.name)}님, 오늘도 한 판!</div></div><button class="icon" onclick="settings()">⚙ 설정</button></div>
+<div class="stat" style="margin-top:12px"><div><b>${d.n}</b><span class="mut">오늘 푼 문제</span></div><div><b>${d.ok}</b><span class="mut">오늘 맞힘</span></div><div><b>${streak()}일</b><span class="mut">연속 연습</span></div></div>
+<h2>연습할 범위</h2>
+<div class="chips">${Object.keys(LESSONS).map(l=>`<button class="chip ${S.lessons.includes(+l)?'on':''}" onclick="togL(${l})">${LESSONS[l].title}</button>`).join('')}</div>
+<div class="mut" style="margin-top:6px">${S.lessons.map(l=>LESSONS[l].sub).join(' / ')||'과를 하나 이상 고르세요'}</div>
+<h2>연습 고르기</h2>
+<div class="modes">
+<button class="mode wide" onclick="start('mix')"><b>⭐ 오늘의 연습</b><span>단어 + 문장 배열 + 작문 + 말하기 섞어서 ${S.n}문제</span></button>
+<button class="mode" onclick="start('word')"><b>🃏 단어 퀴즈</b><span>뜻 고르기 · 듣고 고르기 · 철자</span></button>
+<button class="mode" onclick="start('build')"><b>🧩 문장 배열</b><span>단어 카드로 문장 완성</span></button>
+<button class="mode" onclick="start('write')"><b>✍ 작문</b><span>한국어 보고 스페인어로 쓰기</span></button>
+<button class="mode" onclick="start('speak')"><b>🎙 말하기</b><span>한국어 보고 스페인어로 말하기</span></button>
+<button class="mode" onclick="start('repeat')"><b>🔁 따라 말하기</b><span>듣고 똑같이 말하기</span></button>
+<button class="mode" onclick="start('drill')"><b>🔄 바꿔 말하기</b><span>주어·수·위치 바꿔 다시 쓰기</span></button>
+<button class="mode" onclick="start('miss')" ${miss?'':'disabled style="opacity:.5"'}><b>📒 오답 다시</b><span>틀린 문제 ${miss}개</span></button>
+<button class="mode" onclick="aiPage()"><b>✨ 새 문장 만들기</b><span>Claude가 같은 수준 문장 추가 (${S.ai.length}개)</span></button>
+</div>
+<div class="row"><button class="btn soft" onclick="shareLog()">📤 기록 공유</button><button class="btn soft" onclick="sentList()">📚 문장 목록</button></div>
+<p class="mut">문장 ${allSent().filter(inL).length}개 · 단어 ${WORD.filter(inL).length}개 · 바꿔 말하기 ${DRILL.filter(inL).length}개 (선택한 과 기준)</p>`}
+
+function setup(){app.innerHTML=`<h1>¡Bienvenido! 🇪🇸</h1><p>스페인어 모임 연습장이에요. 이름을 적어 주세요. 기록은 이 휴대폰에만 저장돼요.</p>
+<input type="text" id="nm" placeholder="이름" maxlength="12"><div class="row"><button class="btn full" onclick="if($('#nm').value.trim()){S.name=$('#nm').value.trim();save();home()}">시작하기</button></div>`}
+function togL(l){const i=S.lessons.indexOf(l);if(i>=0)S.lessons.splice(i,1);else S.lessons.push(l);S.lessons.sort();save();home()}
+
+/* ---------- 문제 만들기 ---------- */
+function wordQ(w){const pool=WORD.filter(x=>x.id!==w.id&&x.ko!==w.ko&&x.es!==w.es);const same=pool.filter(x=>x.cat===w.cat);const spellable=!/[\/(…]|\.\.\./.test(w.es)&&w.es.split(' ').length<=3;const types=['es2ko','ko2es','listen'].concat(spellable?['spell']:[]);const t=types[Math.floor(Math.random()*types.length)];const others=[];for(const x of shuffle(same.length>=3?same:pool).concat(shuffle(pool))){if(others.length>=3)break;if(!others.some(o=>o.ko===x.ko||o.es===x.es))others.push(x)}return{kind:'word',t,item:w,opts:shuffle([w,...others])}}
+function sentQ(kind,s){if(kind==='build'){const toks=shown(s.es).replace(/[¿¡?!.,;:—]/g,' ').split(/\s+/).filter(Boolean);const NAMES=/^(Carlos|Juan|Carmen|Madrid|Minji|Ana|Lucía|Pablo|Luis|Kim|España|Corea|Seúl)$/;if(!NAMES.test(toks[0]))toks[0]=toks[0].toLowerCase();const lower=new Set(toks.map(t=>flat(t)));const extra=shuffle(allSent().filter(x=>x.l===s.l&&x.id!==s.id).flatMap(x=>shown(x.es).replace(/[¿¡?!.,;:—]/g,' ').split(/\s+/)).filter(t=>t&&!lower.has(flat(t))&&!NAMES.test(t)).map(t=>t.toLowerCase())).filter((v,i,a)=>a.indexOf(v)===i).slice(0,2);return{kind,item:s,tiles:shuffle(toks.concat(extra)).map((t,i)=>({t,i})),placed:[]}}return{kind,item:s}}
+function makeItems(mode){const n=S.n;const sents=allSent().filter(inL);const words=WORD.filter(inL);const drills=DRILL.filter(inL);
+ if(mode==='word')return pick(words,n).map(wordQ);
+ if(['build','write','speak','repeat'].includes(mode))return pick(sents,n).map(s=>sentQ(mode,s));
+ if(mode==='drill')return pick(drills,n).map(d=>({kind:'drill',item:d}));
+ if(mode==='miss'){const ids=shuffle(Object.keys(S.miss)).filter(id=>byId(id)).slice(0,n);return ids.map(id=>{const it=byId(id);if(id[0]==='w')return wordQ(it);if(id[0]==='d')return{kind:'drill',item:it};return sentQ(['build','write','speak'][Math.floor(Math.random()*3)],it)})}
+ // mix
+ const k=Math.max(2,Math.round(n/4));const ss=pick(sents,n);let out=[...pick(words,k).map(wordQ),...ss.slice(0,k).map(s=>sentQ('build',s)),...ss.slice(k,2*k).map(s=>sentQ('write',s)),...ss.slice(2*k,2*k+Math.max(1,n-3*k-1)).map(s=>sentQ(SR?'speak':'write',s))];if(drills.length)out.push({kind:'drill',item:pick(drills,1)[0]});return out.slice(0,n)}
+function start(mode){if(!S.lessons.length)return toast('연습할 과를 먼저 고르세요');const items=makeItems(mode);if(!items.length)return toast('문제가 없어요');G={mode,items,i:0,ok:0,log:[]};render()}
+
+/* ---------- 문제 화면 ---------- */
+const MODE_NAME={mix:'오늘의 연습',word:'단어 퀴즈',build:'문장 배열',write:'작문',speak:'말하기',repeat:'따라 말하기',drill:'바꿔 말하기',miss:'오답 다시'};
+function head(){return`<div class="top"><button class="icon" onclick="if(confirm('그만할까요? 지금까지 푼 건 저장돼요.'))home()">✕</button><div class="sp mut" style="text-align:center">${MODE_NAME[G.mode]} · ${G.i+1} / ${G.items.length}</div><div class="mut">✓ ${G.ok}</div></div><div class="bar"><i style="width:${G.i/G.items.length*100}%"></i></div>`}
+function lvTag(it){return`<span class="tag">${it.l}과</span>${it.lv===2?'<span class="tag">활용</span>':''}${it.ai?'<span class="tag">AI</span>':''}`}
+function render(){if(G.i>=G.items.length)return done();const q=G.items[G.i];q.answered=false;let h=head()+'<div class="card">';const it=q.item;
+ if(q.kind==='word'){const label={es2ko:'뜻을 고르세요',ko2es:'스페인어를 고르세요',listen:'듣고 뜻을 고르세요',spell:'스페인어로 쓰세요'}[q.t];
+  h+=`<div class="mut">${label} <span class="tag">${it.l}과 · ${esc(it.cat)}</span></div>`;
+  if(q.t==='es2ko')h+=`<div class="q es">${esc(it.es)} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button></div>`;
+  if(q.t==='ko2es'||q.t==='spell')h+=`<div class="q">${esc(it.ko)}</div>`;
+  if(q.t==='listen')h+=`<div style="text-align:center"><button class="mic" style="font-size:1.6rem" onclick="say(G.items[G.i].item.es)">🔊</button><div class="mut">다시 들으려면 누르세요</div></div>`;
+  if(q.t==='spell')h+=`<input type="text" id="ans" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="스페인어로" onkeydown="if(event.key==='Enter')checkSpell()">${accBar()}<div class="row"><button class="btn" onclick="checkSpell()">확인</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div>`;
+  else h+=`<div class="opts">${q.opts.map((o,k)=>`<button class="opt" data-k="${k}" onclick="pickOpt(${k})">${esc(q.t==='ko2es'?o.es:o.ko)}</button>`).join('')}</div>`;
+  h+='<div id="out"></div></div>';app.innerHTML=h;if(q.t==='listen')setTimeout(()=>say(it.es),250);return}
+ if(q.kind==='build'){h+=`<div class="mut">단어 카드를 순서대로 누르세요 ${lvTag(it)}</div><div class="q">${esc(it.ko)}</div><div class="slot" id="slot"></div><div class="tiles" id="tiles"></div><div class="mut" style="margin-top:4px">안 쓰는 카드가 1~2개 섞여 있어요. 붙인 카드를 누르면 빠져요.</div><div class="row"><button class="btn" onclick="checkBuild()">확인</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div><div id="out"></div></div>`;app.innerHTML=h;drawTiles();return}
+ if(q.kind==='write'||q.kind==='drill'){
+  if(q.kind==='write')h+=`<div class="mut">스페인어로 쓰세요 ${lvTag(it)}</div><div class="q">${esc(it.ko)}</div>`;
+  else h+=`<div class="mut">조건에 맞게 바꿔 쓰세요 <span class="tag">${it.l}과</span></div><div class="q es">${esc(shown(it.base))} <button class="speak" onclick="say(G.items[G.i].item.base)">🔊</button></div><div style="margin:4px 0 10px">→ <b style="color:var(--red)">${esc(it.cue)}</b></div>`;
+  h+=`<textarea id="ans" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="여기에 쓰기 (강세 부호는 아래 버튼)"></textarea>${accBar()}<div class="row"><button class="btn" onclick="checkText()">확인</button>${SR?'<button class="btn ghost" onclick="dictate()">🎙 말로 입력</button>':''}<button class="btn soft" onclick="hint()">힌트</button></div><div class="heard" id="heard"></div><div id="out"></div></div>`;app.innerHTML=h;return}
+ if(q.kind==='speak'||q.kind==='repeat'){
+  if(q.kind==='speak')h+=`<div class="mut">스페인어로 말해 보세요 ${lvTag(it)}</div><div class="q">${esc(it.ko)}</div>`;
+  else h+=`<div class="mut">듣고 똑같이 말해 보세요 ${lvTag(it)}</div><div class="q es">${esc(shown(it.es))} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button> <button class="speak" title="천천히" onclick="say(G.items[G.i].item.es,0.6)">🐢</button></div><div class="mut">${esc(it.ko)}</div>`;
+  h+=SR?`<button class="mic" id="mic" onclick="speakNow()">🎙</button><div class="heard" id="heard">마이크를 누르고 말하세요</div><div class="row"><button class="btn soft" onclick="typeInstead()">⌨ 쓰기로 답하기</button><button class="btn soft" onclick="giveUp()">모르겠어요</button></div>`
+   :`<p class="mut">이 브라우저는 음성인식이 안 돼요. 휴대폰 크롬으로 열면 돼요. 지금은 쓰기로 답하세요.</p><textarea id="ans"></textarea>${accBar()}<div class="row"><button class="btn" onclick="checkText()">확인</button></div>`;
+  h+='<div id="out"></div></div>';app.innerHTML=h;if(q.kind==='repeat')setTimeout(()=>say(it.es),300);return}}
+function accBar(){return`<div class="acc">${['á','é','í','ó','ú','ñ','ü','¿','¡'].map(c=>`<button onmousedown="event.preventDefault()" onclick="ins('${c}')">${c}</button>`).join('')}</div>`}
+function ins(c){const a=$('#ans');if(!a)return;const s=a.selectionStart??a.value.length,e=a.selectionEnd??a.value.length;a.value=a.value.slice(0,s)+c+a.value.slice(e);a.focus();a.selectionStart=a.selectionEnd=s+c.length}
+function nextBtn(extra){return`<div class="row">${extra||''}<button class="btn" id="nx" onclick="G.i++;render()">다음 →</button></div>`}
+function finish(ok,html,extra){const q=G.items[G.i];if(q.answered)return;q.answered=true;q.ok=ok;if(ok)G.ok++;G.log.push({id:q.item.id,ok});mark(q.item,ok);$('#out').innerHTML=html+nextBtn(extra);const nx=$('#nx');nx&&nx.scrollIntoView({behavior:'smooth',block:'nearest'})}
+function upgrade(){const q=G.items[G.i];if(q.ok)return;q.ok=true;G.ok++;const d=S.days[today()];if(d)d.ok++;if(S.miss[q.item.id]){S.miss[q.item.id]--;if(S.miss[q.item.id]<=0)delete S.miss[q.item.id]}save();$('.top .mut:last-child').textContent='✓ '+G.ok}
+
+function pickOpt(k){const q=G.items[G.i];if(q.answered)return;const right=q.opts.indexOf(q.item);document.querySelectorAll('.opt').forEach((b,i)=>{if(i===right)b.classList.add('ok');else if(i===k)b.classList.add('no')});const ok=k===right;say(q.item.es);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'아쉬워요'}</div><span class="es">${esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`);if(ok)setTimeout(()=>{if(G&&G.items[G.i]===q){G.i++;render()}},1100)}
+function checkSpell(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;const r=check(v,q.item);say(q.item.es);const msg=r.res==='ok'?'¡Perfecto! 정답':r.res==='mid'?'거의 맞았어요 — 강세·ñ만 확인':'아쉬워요';finish(r.res!=='no',`<div class="res ${r.res}"><div class="h">${msg}</div><span class="es">${r.res==='mid'?accentDiff(v,q.item.es):esc(q.item.es)}</span> = ${esc(q.item.ko)}</div>`)}
+function giveUp(){const q=G.items[G.i];const it=q.item;say(it.es);finish(false,`<div class="res no"><div class="h">정답</div><span class="es">${esc(q.kind==='word'?it.es:shown(it.es))}</span>${q.kind==='word'?' = '+esc(it.ko):''}${it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:''}</div>`)}
+
+function drawTiles(){const q=G.items[G.i];$('#slot').innerHTML=q.placed.map((ti,k)=>`<button class="tile" onclick="unplace(${k})">${esc(q.tiles[ti].t)}</button>`).join('')||'<span class="mut" style="padding:6px">여기에 문장이 만들어져요</span>';$('#tiles').innerHTML=q.tiles.map((t,i)=>`<button class="tile ${q.placed.includes(i)?'used':''}" onclick="place(${i})">${esc(t.t)}</button>`).join('')}
+function place(i){const q=G.items[G.i];if(q.answered||q.placed.includes(i))return;q.placed.push(i);drawTiles()}
+function unplace(k){const q=G.items[G.i];if(q.answered)return;q.placed.splice(k,1);drawTiles()}
+function checkBuild(){const q=G.items[G.i];if(!q.placed.length)return;const v=q.placed.map(i=>q.tiles[i].t).join(' ');const r=check(v,q.item);const ok=r.res!=='no';say(q.item.es);const d=diffHtml(v,r.best);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'순서를 다시 보세요'}</div>${ok?'':`<div>내 답: ${d.u}</div>`}<div class="es">${ok?esc(shown(r.best)):d.b}</div>${q.item.tip?`<div class="tip">💡 ${esc(q.item.tip)}</div>`:''}</div>`)}
+
+function hint(){const q=G.items[G.i];const w=shown(q.item.es).split(/\s+/);$('#heard').innerHTML=`힌트: <b>${esc(w[0])} ${w.length>2?esc(w[1]):''}</b> … (${w.length}단어)`}
+async function dictate(){const h=$('#heard');h.textContent='듣는 중… 말을 마치면 잠시 기다리세요';try{const alts=await listen(t=>h.textContent='🎙 '+t);if(!alts.length){h.textContent='잘 안 들렸어요. 다시 눌러 보세요';return}const q=G.items[G.i];let best=alts[0];for(const a of alts)if(check(a,q.item).res!=='no'){best=a;break}$('#ans').value=best;h.textContent='확인 버튼을 누르세요 (고쳐도 돼요)'}catch(e){h.textContent=micErr(e)}}
+function micErr(e){return e.message==='not-allowed'?'마이크 권한이 꺼져 있어요. 주소창 왼쪽 자물쇠 → 권한 → 마이크 허용':'음성인식 오류: '+e.message}
+function typeInstead(){const q=G.items[G.i];q.kind='write';render()}
+function checkText(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;judge(v)}
+async function speakNow(){const q=G.items[G.i];if(q.answered)return;const m=$('#mic'),h=$('#heard');if(REC){REC.stop();return}m.classList.add('on');h.textContent='듣는 중… (다 말하면 자동으로 끝나요)';try{const alts=await listen(t=>h.textContent='🎙 '+t);m.classList.remove('on');if(!alts.length){h.textContent='잘 안 들렸어요. 다시 눌러 보세요';return}let best=alts[0];for(const a of alts){if(check(a,q.item).res!=='no'){best=a;break}}h.textContent='들은 문장: '+best;judge(best,true)}catch(e){m.classList.remove('on');h.textContent=micErr(e)}}
+function judge(v,spoken){const q=G.items[G.i];const it=q.item;const r=check(v,it);say(r.best);const tip=it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:'';
+ if(r.res==='ok')return finish(true,`<div class="res ok"><div class="h">¡Perfecto! 정답</div><div class="es">${esc(shown(r.best))}</div>${otherAns(it,r.best)}${tip}</div>`);
+ if(r.res==='mid')return finish(true,spoken?`<div class="res ok"><div class="h">¡Muy bien! 정답</div><div class="es">${esc(shown(r.best))}</div>${tip}</div>`:`<div class="res mid"><div class="h">거의 맞았어요 — 강세·ñ 확인</div><div class="es">${accentDiff(v,r.best)}</div>${tip}</div>`);
+ const d=diffHtml(v,r.best);
+ finish(false,`<div class="res no"><div class="h">${spoken?'조금 달라요':'다시 볼까요?'}</div><div>내 답: ${d.u}</div><div class="es" style="margin-top:4px">정답: ${d.b} <button class="speak" onclick="say(${esc(JSON.stringify(r.best))})">🔊</button></div>${otherAns(it,r.best)}${tip}<div id="aiout"></div></div>`,`<button class="btn ghost" onclick="aiCheck(${esc(JSON.stringify(v))})">✨ 내 문장도 맞나요?</button>`)}
+function otherAns(it,best){const o=[it.es,...(it.alts||[])].map(shown).filter((v,i,a)=>a.indexOf(v)===i&&flat(v)!==flat(best));return o.length?`<div class="tip">이렇게도 돼요: ${o.map(esc).join(' / ')}</div>`:''}
+
+function done(){const n=G.items.length,ok=G.ok;const wrong=G.items.filter(q=>!q.ok);app.innerHTML=`<h1>${ok===n?'¡Perfecto! 🎉':ok>=n*0.7?'¡Muy bien! 👏':'¡Ánimo! 💪'}</h1><div class="stat"><div><b>${ok} / ${n}</b><span class="mut">맞힌 문제</span></div><div><b>${(S.days[today()]||{n:0}).n}</b><span class="mut">오늘 전체</span></div></div>
+${wrong.length?`<h2>틀린 문제 (오답 노트에 저장됨)</h2><div class="card"><ul class="list">${wrong.map(q=>`<li>${q.kind==='drill'?esc(shown(q.item.base))+' → '+esc(q.item.cue):esc(q.item.ko)}<br><span class="es">${esc(q.kind==='word'?q.item.es:shown(q.item.es))}</span> <button class="speak" onclick='say(${esc(JSON.stringify(q.item.es))})'>🔊</button></li>`).join('')}</ul></div>`:''}
+<div class="row"><button class="btn" onclick="start('${G.mode}')">한 판 더</button><button class="btn soft" onclick="home()">처음으로</button></div>`}
+
+/* ---------- 목록·공유·설정 ---------- */
+function sentList(){const ss=allSent().filter(inL);app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>문장 목록</h1><p class="mut">선택한 과의 문장 ${ss.length}개. 🔊를 누르면 들려줘요.</p>${S.lessons.map(l=>`<h2>${LESSONS[l].title}</h2><div class="card"><ul class="list">${ss.filter(s=>s.l===l).map(s=>`<li>${lvTag(s)}${esc(s.ko)}<br><span class="es">${esc(shown(s.es))}</span> <button class="speak" onclick='say(${esc(JSON.stringify(s.es))})'>🔊</button>${s.ai?` <button class="icon" style="padding:2px 8px" onclick="delAi('${s.id}')">삭제</button>`:''}</li>`).join('')}</ul></div>`).join('')}`}
+function delAi(id){if(!confirm('이 AI 문장을 지울까요?'))return;S.ai=S.ai.filter(a=>a.id!==id);delete S.miss[id];save();sentList()}
+async function shareLog(){const d=S.days[today()]||{n:0,ok:0};const t=`🇪🇸 ${S.name} · ${today().slice(5).replace('-','/')} 스페인어 연습\n오늘 ${d.n}문제 (맞힘 ${d.ok}) · 연속 ${streak()}일째${Object.keys(S.miss).length?`\n오답 노트 ${Object.keys(S.miss).length}개 남음`:''}`;if(navigator.share){try{await navigator.share({text:t});return}catch(e){}}if(await copy(t))toast('복사했어요. 단톡방에 붙여 넣으세요')}
+function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>설정</h1>
+<label class="f">이름</label><input type="text" id="nm" value="${esc(S.name)}" maxlength="12">
+<label class="f">한 판 문제 수</label><div class="seg">${[8,12,20].map(n=>`<button class="${S.n===n?'on':''}" onclick="S.n=${n};save();settings()">${n}</button>`).join('')}</div>
+<label class="f">읽어 주는 속도</label><div class="seg">${[[0.65,'천천히'],[0.85,'보통'],[1,'빠르게']].map(([r,t])=>`<button class="${S.rate===r?'on':''}" onclick="S.rate=${r};save();say('Hola, ¿qué tal?');settings()">${t}</button>`).join('')}</div>
+<div class="card ai" style="margin-top:18px"><b>✨ Claude 첨삭·새 문장 (선택)</b><p class="mut" style="margin:6px 0">Anthropic API 키를 넣으면 이 앱 안에서 바로 첨삭받고 새 문장을 만들 수 있어요. 키는 이 휴대폰에만 저장되고 Anthropic 서버로만 보내져요. 키가 없어도 "Claude 앱에서 물어보기"로 똑같이 쓸 수 있어요.</p>
+<label class="f">API 키</label><input type="password" id="key" value="${esc(S.key)}" placeholder="sk-ant-…" autocomplete="off">
+<label class="f">모델</label><select id="model"><option value="claude-opus-5-5" ${S.model==='claude-opus-5-5'?'selected':''}>Claude Opus 5.5 (가장 정확)</option><option value="claude-haiku-5-5" ${S.model==='claude-haiku-5-5'?'selected':''}>Claude Haiku 5.5 (훨씬 저렴·빠름)</option></select>
+<div class="row"><button class="btn soft" onclick="testKey()">키 확인</button></div><div id="kt" class="mut"></div></div>
+<div class="row"><button class="btn full" onclick="S.name=$('#nm').value.trim()||S.name;S.key=$('#key').value.trim();S.model=$('#model').value;save();toast('저장했어요');home()">저장</button></div>
+<div class="row"><button class="btn soft" onclick="if(confirm('오늘 기록·오답 노트·AI 문장을 모두 지울까요?')){localStorage.removeItem(KEY);location.reload()}">기록 모두 지우기</button></div>
+<p class="mut">음성인식: ${SR?'사용 가능':'이 브라우저는 안 돼요 (휴대폰 크롬 권장)'} · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+
+/* ---------- Claude ---------- */
+let SDK=null;
+async function claude(system,user,schema){S.key=($('#key')&&$('#key').value.trim())||S.key;if(!S.key)throw new Error('nokey');
+ if(!SDK)SDK=(await import('https://esm.sh/@anthropic-ai/sdk')).default;
+ const client=new SDK({apiKey:S.key,dangerouslyAllowBrowser:true});
+ const base={model:S.model,max_tokens:4000,system,messages:[{role:'user',content:user}],output_config:{effort:'low',format:{type:'json_schema',schema}}};
+ let r;
+ try{r=S.model==='claude-opus-5-5'?await client.beta.messages.create({...base,betas:['server-side-fallback-2026-07-01'],fallbacks:'default'}):await client.messages.create(base)}
+ catch(e){if(e.status===400){const {output_config,...plain}=base;r=await client.messages.create({...plain,output_config:{effort:'low'},system:system+'\n\n반드시 JSON 하나만 출력하세요.'})}else throw e}
+ if(r.stop_reason==='refusal')throw new Error('refusal');
+ const txt=r.content.filter(b=>b.type==='text').map(b=>b.text).join('');const m=txt.match(/\{[\s\S]*\}/);return JSON.parse(m?m[0]:txt)}
+function aiErr(e){if(e.message==='nokey')return'';if(e.status===401)return'API 키가 맞지 않아요. 설정에서 다시 넣어 주세요.';if(e.status===429)return'요청이 너무 많아요. 잠시 뒤 다시 해 보세요.';if(e.message==='refusal')return'Claude가 이 요청에 답하지 않았어요.';return'연결 오류: '+(e.message||e)}
+async function testKey(){$('#kt').innerHTML='<span class="spin"></span> 확인 중…';try{const r=await claude('Respond in JSON.','Say ok.',{type:'object',properties:{ok:{type:'boolean'}},required:['ok'],additionalProperties:false});$('#kt').textContent='✅ 연결됐어요';}catch(e){$('#kt').textContent='❌ '+(aiErr(e)||'키를 넣어 주세요')}}
+const SYS_CHECK=`당신은 한국인 성인 초급 학습자(교재 Curso de español 1)의 스페인어 문장을 봐 주는 친절한 선생님입니다.
+학습자가 한국어 문장을 스페인어로 옮긴 답을 판정하세요.
+- verdict: 뜻이 한국어와 맞고 문법·철자가 맞으면 "correct"(모범 답안과 달라도 됨). 강세 부호·¿¡·대소문자만 틀리면 "almost". 그 외는 "wrong".
+- 스페인 스페인어 기준이지만 중남미에서 자연스러운 표현(ustedes, computadora, celular 등)도 맞게 봅니다. 주어 생략도 맞습니다.
+- (남)/(여) 표시는 말하는 사람이나 주어의 성별입니다.
+- corrected: 학습자 문장을 최소한으로 고친 자연스러운 문장(맞으면 그대로).
+- explanation: 한국어로 1~3문장. 무엇이 왜 틀렸는지 초급자 눈높이로. 맞으면 짧게 칭찬하고 참고할 점 하나.`;
+const SCH_CHECK={type:'object',properties:{verdict:{type:'string',enum:['correct','almost','wrong']},corrected:{type:'string'},explanation:{type:'string'}},required:['verdict','corrected','explanation'],additionalProperties:false};
+function checkPrompt(it,v){return`한국어: ${it.ko||('“'+shown(it.base)+'”를 '+it.cue+'(으)로 바꾸기')}\n모범 답안: ${[it.es,...(it.alts||[])].map(shown).join(' / ')}\n학습자 답: ${v}`}
+async function aiCheck(v){const q=G.items[G.i];const it=q.item;const box=$('#aiout');
+ if(!S.key){const p=SYS_CHECK.replace(/- verdict[\s\S]*$/,'')+'\n맞는지, 틀렸다면 왜 틀렸는지 한국어로 짧게 알려 주세요.\n\n'+checkPrompt(it,v);await copy(p);box.innerHTML=`<div class="tip">질문을 복사했어요. Claude 앱에 붙여 넣으세요. <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude 열기 ↗</a><br>(설정에 API 키를 넣으면 여기서 바로 볼 수 있어요)</div>`;return}
+ box.innerHTML='<div class="tip"><span class="spin"></span> Claude가 보는 중…</div>';
+ try{const r=await claude(SYS_CHECK,checkPrompt(it,v),SCH_CHECK);
+  const label={correct:'✅ 맞는 문장이에요',almost:'🟡 거의 맞았어요',wrong:'❌ 고칠 곳이 있어요'}[r.verdict];
+  box.innerHTML=`<div class="card ai" style="margin:10px 0 0"><b>${label}</b>${r.verdict!=='correct'?`<div class="es" style="margin-top:4px">${esc(r.corrected)} <button class="speak" onclick='say(${esc(JSON.stringify(r.corrected))})'>🔊</button></div>`:''}<div class="tip" style="color:var(--ink)">${esc(r.explanation)}</div></div>`;
+  if(r.verdict!=='wrong'){(S.alts[it.id]=S.alts[it.id]||[]).push(r.verdict==='correct'?v:r.corrected);save();upgrade();box.insertAdjacentHTML('beforeend','<div class="tip">정답으로 바꿨고, 다음부터 이 문장도 정답으로 인정해요.</div>')}}
+ catch(e){box.innerHTML=`<div class="tip">${esc(aiErr(e))}</div>`}}
+
+/* 새 문장 만들기 */
+const SCH_GEN={type:'object',properties:{sentences:{type:'array',items:{type:'object',properties:{lesson:{type:'integer'},level:{type:'integer'},ko:{type:'string'},es:{type:'string'},alts:{type:'array',items:{type:'string'}},tip:{type:'string'}},required:['lesson','level','ko','es','alts','tip'],additionalProperties:false}}},required:['sentences'],additionalProperties:false};
+function genPrompt(n,lv,topic){const ls=S.lessons;const vocab=ls.map(l=>`[${LESSONS[l].title}] `+WORDS[l].map(w=>w[0]).join(', ')).join('\n');const have=allSent().filter(inL).map(s=>shown(s.es)).join(' / ');
+ return{sys:`당신은 한국인 성인 초급 학습자를 위해 스페인어 연습 문장을 만드는 선생님입니다. 교재는 Curso de español 1이고, 학습자는 아래 과까지 배웠습니다. 출력 문장은 앱의 작문·말하기·문장 배열 문제로 쓰입니다.
+규칙:
+- 문법은 배운 과의 문법만: ${ls.map(l=>LESSONS[l].title+' — '+LESSONS[l].grammar).join(' / ')}. 배우지 않은 시제(과거·미래)와 배우지 않은 동사 변화는 쓰지 않습니다. 현재형 규칙 동사(-ar) 정도는 괜찮습니다.
+- 단어는 주로 아래 교재 단어. 새 단어는 문장마다 최대 1개, 쓰면 tip에 뜻을 적습니다.
+- level 1 = 교재 예문과 같은 난도(짧은 한 문장). level 2 = 조금 더 활용(두 문장 잇기, y/pero/también, 부정문, 질문+대답, 여행 상황).
+- ko: 자연스러운 한국어. 성별이 답을 바꾸면 끝에 (남)/(여)를 붙입니다.
+- es: 스페인 스페인어로 자연스럽고 문법이 맞는 문장. 생략 가능한 주어 대명사는 괄호로: "(Yo) soy coreano." 괄호는 문장 맨 앞 주어에만 씁니다.
+- alts: 뜻이 같은 다른 정답 0~3개(어순·단어 바꿈). 없으면 빈 배열.
+- tip: 한국어로 짧은 문법 포인트 하나(없으면 빈 문자열).
+- 이미 있는 문장과 겹치지 않게 다양하게: 사람·장소·상황을 바꿉니다.
+- lesson은 그 문장의 중심 문법이 나온 과 번호.
+
+교재 단어:
+${vocab}`,
+ user:`문장 ${n}개를 만들어 주세요. ${lv==='mix'?'level 1과 2를 반씩.':'모두 level '+lv+'.'}${topic?` 주제/상황: ${topic}.`:''}\n\n이미 있는 문장(겹치지 않게): ${have.slice(0,6000)}`}}
+function aiPage(){app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>✨ 새 문장 만들기</h1><p class="mut">고른 과(${S.lessons.map(l=>l+'과').join(', ')||'없음'})의 문법·단어로 Claude가 새 문장을 만들어 연습 문제에 넣어요. 지금 AI 문장 ${S.ai.length}개.</p>
+<label class="f">난도</label><div class="seg" id="lv"><button data-v="1">교재 수준</button><button data-v="mix" class="on">섞어서</button><button data-v="2">조금 더 활용</button></div>
+<label class="f">개수</label><div class="seg" id="cnt"><button data-v="10" class="on">10</button><button data-v="20">20</button></div>
+<label class="f">주제·상황 (선택)</label><input type="text" id="topic" placeholder="예: 호텔 체크인, 카페, 가족 소개, 길 묻기">
+<div class="row"><button class="btn" onclick="genAi()">${S.key?'만들기':'Claude 앱에서 만들기 (복사)'}</button></div><div id="gout"></div>
+${S.key?'':`<div class="card"><b>Claude 앱에서 받은 결과 붙여 넣기</b><p class="mut" style="margin:4px 0">위 버튼으로 복사한 질문을 Claude 앱에 붙여 넣고, Claude가 준 JSON을 통째로 여기에 붙여 넣으세요.</p><textarea id="paste" placeholder='{"sentences":[...]}'></textarea><div class="row"><button class="btn soft" onclick="pasteAi()">추가하기</button></div></div>`}`;
+ document.querySelectorAll('.seg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{sg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}))}
+function segVal(id){return $('#'+id+' .on').dataset.v}
+function addAi(list){const now=Date.now();let k=0;const added=[];for(const s of list){if(!s.ko||!s.es)continue;const l=S.lessons.includes(+s.lesson)?+s.lesson:S.lessons[S.lessons.length-1];if(allSent().some(x=>flat(x.es)===flat(s.es)))continue;const it={id:`a${now}-${k++}`,l,lv:+s.level===2?2:1,ko:s.ko,es:s.es,alts:s.alts||[],tip:s.tip||''};S.ai.push(it);added.push(it)}save();return added}
+function showAdded(a){$('#gout').innerHTML=`<div class="card ai"><b>${a.length}개 추가했어요</b> — 이제 연습 문제에 섞여 나와요. 이상한 문장은 문장 목록에서 지울 수 있어요.<ul class="list">${a.map(s=>`<li>${lvTag(s)}${esc(s.ko)}<br><span class="es">${esc(shown(s.es))}</span> <button class="speak" onclick='say(${esc(JSON.stringify(s.es))})'>🔊</button></li>`).join('')}</ul></div><div class="row"><button class="btn" onclick="start('write')">바로 작문 연습</button><button class="btn ghost" onclick="start('speak')">바로 말하기</button></div>`}
+async function genAi(){if(!S.lessons.length)return toast('과를 먼저 고르세요');const n=+segVal('cnt'),lv=segVal('lv'),topic=$('#topic').value.trim();const p=genPrompt(n,lv,topic);
+ if(!S.key){await copy(p.sys+'\n\n'+p.user+'\n\n출력 형식: {"sentences":[{"lesson":1,"level":1,"ko":"…","es":"…","alts":[],"tip":""}]} JSON만, 코드 블록 없이.');$('#gout').innerHTML=`<div class="tip">질문을 복사했어요. <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude 열기 ↗</a>에 붙여 넣고, 받은 JSON을 아래 칸에 붙여 넣으세요.</div>`;return}
+ $('#gout').innerHTML='<div class="tip"><span class="spin"></span> Claude가 문장을 만드는 중… (10~30초)</div>';
+ try{const r=await claude(p.sys,p.user,SCH_GEN);showAdded(addAi(r.sentences||[]))}catch(e){$('#gout').innerHTML=`<div class="tip">${esc(aiErr(e))}</div>`}}
+function pasteAi(){try{const t=$('#paste').value;const m=t.match(/\{[\s\S]*\}/);const r=JSON.parse(m?m[0]:t);showAdded(addAi(r.sentences||[]))}catch(e){toast('JSON을 읽지 못했어요. 통째로 붙여 넣었는지 확인하세요')}}
+
+home();
+</script>
+</body>
+</html>
