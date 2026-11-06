@@ -225,7 +225,7 @@ ${inAppBanner()}
 <h2>연습 고르기</h2>
 <div class="modes">
 <button class="mode wide" onclick="start('mix')"><b>⭐ 오늘의 연습</b><span>단어 + 문장 배열 + 작문 + 말하기 섞어서 ${S.n}문제</span></button>
-<button class="mode" onclick="start('word')"><b>🃏 단어 퀴즈</b><span>뜻 고르기 · 듣고 고르기 · 철자</span></button>
+<button class="mode" onclick="start('word')"><b>🃏 단어 퀴즈</b><span>뜻 고르기 · 듣고 고르기 (객관식)</span></button>
 <button class="mode" onclick="start('build')"><b>🧩 문장 배열</b><span>단어 카드로 문장 완성</span></button>
 <button class="mode" onclick="start('write')"><b>✍ 작문</b><span>한국어 보고 스페인어로 쓰기</span></button>
 <button class="mode" onclick="start('speak')"><b>🎙 말하기</b><span>한국어 보고 스페인어로 말하기</span></button>
@@ -242,7 +242,7 @@ function setup(){app.innerHTML=`<h1>¡Bienvenido! 🇪🇸</h1><p>스페인어 �
 function togL(l){const i=S.lessons.indexOf(l);if(i>=0)S.lessons.splice(i,1);else S.lessons.push(l);S.lessons.sort();save();home()}
 
 /* ---------- 문제 만들기 ---------- */
-function wordQ(w){const pool=WORD.filter(x=>x.id!==w.id&&x.ko!==w.ko&&x.es!==w.es);const same=pool.filter(x=>x.cat===w.cat);const spellable=!/[\/(…]|\.\.\./.test(w.es)&&w.es.split(' ').length<=3;const types=['es2ko','ko2es','listen'].concat(spellable?['spell']:[]);const t=types[Math.floor(Math.random()*types.length)];const others=[];for(const x of shuffle(same.length>=3?same:pool).concat(shuffle(pool))){if(others.length>=3)break;if(!others.some(o=>o.ko===x.ko||o.es===x.es))others.push(x)}return{kind:'word',t,item:w,opts:shuffle([w,...others])}}
+function wordQ(w){const pool=WORD.filter(x=>x.id!==w.id&&x.ko!==w.ko&&x.es!==w.es);const same=pool.filter(x=>x.cat===w.cat);const spellable=!/[\/(…]|\.\.\./.test(w.es)&&w.es.split(' ').length<=3;const types=['es2ko','ko2es','listen']; /* 철자 쓰기는 뺌: 같은 뜻의 다른 단어(teatro/cine 등)를 틀렸다고 해서 */const t=types[Math.floor(Math.random()*types.length)];const others=[];for(const x of shuffle(same.length>=3?same:pool).concat(shuffle(pool))){if(others.length>=3)break;if(!others.some(o=>o.ko===x.ko||o.es===x.es))others.push(x)}return{kind:'word',t,item:w,opts:shuffle([w,...others])}}
 function sentQ(kind,s){if(kind==='build'){const toks=shown(s.es).replace(/[¿¡?!.,;:—]/g,' ').split(/\s+/).filter(Boolean);const NAMES=/^(Carlos|Juan|Carmen|Madrid|Minji|Ana|Lucía|Pablo|Luis|Kim|España|Corea|Seúl)$/;if(!NAMES.test(toks[0]))toks[0]=toks[0].toLowerCase();const lower=new Set(toks.map(t=>flat(t)));const extra=shuffle(allSent().filter(x=>x.l===s.l&&x.id!==s.id).flatMap(x=>shown(x.es).replace(/[¿¡?!.,;:—]/g,' ').split(/\s+/)).filter(t=>t&&!lower.has(flat(t))&&!NAMES.test(t)).map(t=>t.toLowerCase())).filter((v,i,a)=>a.indexOf(v)===i).slice(0,2);return{kind,item:s,tiles:shuffle(toks.concat(extra)).map((t,i)=>({t,i})),placed:[]}}return{kind,item:s}}
 function makeItems(mode){const n=S.n;const sents=allSent().filter(inL);const words=WORD.filter(inL);const drills=DRILL.filter(inL);
  if(mode==='word')return pick(words,n).map(wordQ);
@@ -352,7 +352,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <div class="row"><button class="btn soft" onclick="if(confirm('오늘 기록·오답 노트·AI 문장을 모두 지울까요?')){localStorage.removeItem(KEY);location.reload()}">기록 모두 지우기</button></div>
 <div class="card"><b>🎙 마이크 테스트</b><div class="row"><button class="btn soft" onclick="micTest()">테스트 시작</button></div><div id="mt" class="mut" style="margin-top:8px">${SR?'':esc(noSrMsg())}</div>
 <div class="tip">아이폰: Safari로 열고, 설정 → 일반 → 키보드 → "받아쓰기 활성화"를 켜야 해요. 그래도 안 되면 문제 화면의 "⌨ 쓰기로 답하기"에서 키보드 🎤(스페인어 키보드)로 말해도 돼요.</div></div>
-<p class="mut">버전 11-06a · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut">버전 11-06b · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 /* ---------- Claude ---------- */
 let SDK=null;
