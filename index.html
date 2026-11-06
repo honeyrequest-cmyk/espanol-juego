@@ -124,13 +124,21 @@ const pick=(a,n)=>shuffle(a).slice(0,n);
 let VOICE=null;
 function loadVoice(){const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>v.lang==='es-ES'&&/google/i.test(v.name))||vs.find(v=>v.lang==='es-ES')||vs.find(v=>/^es/.test(v.lang))||null}
 if('speechSynthesis' in window){loadVoice();speechSynthesis.onvoiceschanged=loadVoice}
-// 아이폰: 목소리를 직접 고르면(설치 안 된 목소리) 무음이 될 수 있어 lang만 지정.
-// 앞의 소리를 취소한 직후 바로 읽으면 묻히므로, 0.7초 안에 시작 안 하면 한 번 더 시도하고 그래도 안 되면 안내.
-function say(t,rate){if(!('speechSynthesis' in window)){toast('이 브라우저는 읽어 주기가 안 돼요');return}unmute();
- const make=()=>{const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE&&!IOS)u.voice=VOICE;u.rate=rate||S.rate;u.onend=()=>LAST_TTS=Date.now();u.onerror=e=>{if(e.error!=='interrupted'&&e.error!=='canceled')toast('읽어 주기 오류: '+e.error)};return u};
- try{if(speechSynthesis.speaking||speechSynthesis.pending)speechSynthesis.cancel();if(speechSynthesis.paused)speechSynthesis.resume()}catch(e){}
- const u=make();let started=false;u.onstart=()=>{started=true};LAST_TTS=Date.now();speechSynthesis.speak(u);
- if(IOS)setTimeout(()=>{if(started)return;try{speechSynthesis.cancel()}catch(e){}const u2=make();u2.onstart=()=>{started=true};speechSynthesis.speak(u2);setTimeout(()=>{if(!started)toast('소리가 안 나요. 무음 스위치·음량 확인 후, 탭을 닫고 다시 열어 보세요')},1500)},700)}
+// 읽어 주기. 아이폰 주의점:
+// - 목소리를 직접 고르면(설치 안 된 목소리) 무음이 될 수 있어 lang만 지정
+// - 읽는 중에 cancel() 하고 바로 speak() 하면 새 소리가 묻힘 → 취소했으면 0.15초 뒤에 읽기
+// - 문장 객체가 지워지면 중간에 끊기거나 끝 신호가 안 옴 → 전역에 붙잡아 둠
+// - 시작이 느릴 수 있어서, 1.5초 지나도 시작 안 했고 아무것도 안 읽고 있을 때만 한 번 다시 시도
+let UTT=null,TTS_N=0;
+function say(t,rate){if(!('speechSynthesis' in window)){toast('이 브라우저는 읽어 주기가 안 돼요');return}
+ unmute();const n=++TTS_N;
+ const u=new SpeechSynthesisUtterance(shown(t).replace(/—/g,','));u.lang='es-ES';if(VOICE&&!IOS)u.voice=VOICE;u.rate=rate||S.rate;
+ let started=false;u.onstart=()=>{started=true};u.onend=()=>{LAST_TTS=Date.now()};u.onerror=e=>{if(e.error!=='interrupted'&&e.error!=='canceled')toast('읽어 주기 오류: '+e.error)};
+ UTT=u;LAST_TTS=Date.now();
+ let busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending;if(busy)speechSynthesis.cancel();if(speechSynthesis.paused)speechSynthesis.resume()}catch(e){}
+ const speak=()=>{if(n!==TTS_N)return;try{speechSynthesis.speak(u)}catch(e){}};
+ if(busy&&IOS)setTimeout(speak,150);else speak();
+ if(IOS)setTimeout(()=>{if(n!==TTS_N||started||speechSynthesis.speaking)return;try{speechSynthesis.cancel()}catch(e){}setTimeout(()=>{if(n===TTS_N)try{speechSynthesis.speak(u)}catch(e){}},150)},1500)}
 const autoOn=()=>S.autoTTS===undefined?!IOS:S.autoTTS;
 function sayAuto(t){if(autoOn())say(t)}
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -139,23 +147,32 @@ const UA=navigator.userAgent||'';
 const IOS=/iPhone|iPad|iPod/.test(UA)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const INAPP=/KAKAOTALK|NAVER|Instagram|FBAN|FBAV|Line\//i.test(UA);
 const IOS_OTHER=IOS&&/CriOS|FxiOS|EdgiOS|OPiOS/.test(UA);
-// 아이폰 Safari는 isFinal이 안 오거나 말이 끝나도 안 멈출 때가 있어서: 마지막 중간 결과를 답으로 쓰고, 2.5초 조용하면 직접 멈춤
-// 아이폰: 읽어 주기 소리가 나는 중이거나 막 끝났으면 마이크가 소리를 못 받음 → 소리가 멈춘 뒤 잠깐 쉬고 시작.
-// 어떤 경우에도 15초 안에는 반드시 끝나게 해서 "듣는 중"에 갇히지 않게 함.
+// 듣기: 계속 듣다가 말을 멈추고 S.wait초(기본 4초)가 지나면 끝. 첫마디는 12초까지 기다리고 최대 30초.
+// 브라우저가 중간에 혼자 끊으면(갤럭시 크롬은 짧게 쉬어도 끊음) 이어서 다시 들음. 마이크를 한 번 더 누르면 바로 끝.
+// 아이폰: isFinal이 안 와도 중간 결과를 답으로 씀. 읽어 주기 소리가 막 끝났으면 잠깐 쉬고 시작.
 let LAST_TTS=0;
 function listen(onPart){return new Promise((res,rej)=>{if(!SR)return rej(new Error('nosr'));
  if(REC){try{REC.abort()}catch(e){}REC=null}
  let busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending;if(busy||!IOS)speechSynthesis.cancel()}catch(e){}
- const r=new SR();r.lang='es-ES';r.interimResults=true;r.continuous=false;r.maxAlternatives=4;let finals=[],last='',quiet=null,first=null,hard=null,done=false;
- const result=()=>finals.length?finals:last?[last]:[];
- const end=v=>{if(done)return;done=true;clearTimeout(quiet);clearTimeout(first);clearTimeout(hard);REC=null;res(v)};
- const fail=e=>{if(done)return;done=true;clearTimeout(quiet);clearTimeout(first);clearTimeout(hard);REC=null;rej(e)};
- const stopSoon=()=>{try{r.stop()}catch(e){}setTimeout(()=>end(result()),800)};
- REC={stop:stopSoon,abort:()=>{try{r.abort()}catch(e){}end(result())}};
- r.onresult=e=>{let txt='';for(let i=0;i<e.results.length;i++){txt+=e.results[i][0].transcript;if(e.results[i].isFinal)finals=[...e.results[i]].map(a=>a.transcript)}last=txt.trim();onPart&&onPart(txt);clearTimeout(first);clearTimeout(quiet);quiet=setTimeout(stopSoon,2500)};
- r.onerror=e=>{if(e.error==='no-speech'||e.error==='aborted')end(result());else fail(new Error(e.error))};
- r.onend=()=>end(result());
- const go=()=>{if(done)return;if(IOS)audioMode('play-and-record');try{r.start()}catch(e){fail(e);return}first=setTimeout(stopSoon,9000);hard=setTimeout(stopSoon,15000)};
+ const WAIT=(S.wait||4)*1000,T0=Date.now();
+ let prev='',segs=[],interim='',alts=[],r=null,quiet=null,first=null,hard=null,done=false,stopping=false;
+ const sp=a=>a.join(' ').replace(/\s+/g,' ').trim();
+ const text=()=>sp([prev,...segs,interim]);
+ const result=()=>{const t=text();if(!t)return[];const out=[t];for(const a of alts){const v=sp([prev,...segs.slice(0,-1),a,interim]);if(v&&!out.includes(v))out.push(v)}return out};
+ const clear=()=>{clearTimeout(quiet);clearTimeout(first);clearTimeout(hard)};
+ const end=()=>{if(done)return;done=true;clear();REC=null;const v=result();try{r&&r.abort()}catch(e){}if(IOS)setTimeout(()=>audioMode('playback'),300);res(v)};
+ const fail=e=>{if(done)return;done=true;clear();REC=null;try{r&&r.abort()}catch(x){}rej(e)};
+ const stopSoon=()=>{if(stopping||done)return;stopping=true;try{r.stop()}catch(e){}setTimeout(end,900)};
+ REC={stop:stopSoon,abort:end};
+ const session=()=>{r=new SR();r.lang='es-ES';r.interimResults=true;r.continuous=true;r.maxAlternatives=3;
+  r.onresult=e=>{if(done)return;const fin=[];interim='';for(let i=0;i<e.results.length;i++){const x=e.results[i];if(x.isFinal){const t=x[0].transcript.trim();if(!t)continue;const p=fin[fin.length-1];if(p&&t.startsWith(p))fin[fin.length-1]=t;else if(!fin.includes(t))fin.push(t);alts=[...x].map(a=>a.transcript.trim())}else interim+=x[0].transcript}
+   segs=fin;onPart&&onPart(text());clearTimeout(first);clearTimeout(quiet);quiet=setTimeout(stopSoon,WAIT)};
+  r.onerror=e=>{if(done||e.error==='no-speech'||e.error==='aborted')return;fail(new Error(e.error))};
+  r.onend=()=>{if(done)return;if(stopping){end();return}
+   prev=text();segs=[];interim='';alts=[];
+   if(Date.now()-T0<29000){try{session()}catch(e){end()}}else end()};
+  if(IOS)audioMode('play-and-record');r.start()};
+ const go=()=>{if(done)return;try{session()}catch(e){fail(e);return}first=setTimeout(stopSoon,12000);hard=setTimeout(stopSoon,30000)};
  const wait=IOS?(busy?600:Math.max(0,500-(Date.now()-LAST_TTS))):0;
  if(wait)setTimeout(go,wait);else go()})}
 
@@ -164,7 +181,8 @@ function listen(onPart){return new Promise((res,rej)=>{if(!SR)return rej(new Err
 function audioMode(m){try{if(navigator.audioSession)navigator.audioSession.type=m}catch(e){}}
 let SIL=null;
 function silentWav(){const sr=8000,n=1600,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
-function unmute(){if(!IOS)return;audioMode('playback');try{if(!SIL){SIL=new Audio(silentWav());SIL.setAttribute('playsinline','')}SIL.currentTime=0;const p=SIL.play();p&&p.catch(()=>{})}catch(e){}}
+let UNMUTED=false;
+function unmute(){if(!IOS)return;try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}if(UNMUTED)return;UNMUTED=true;try{SIL=new Audio(silentWav());SIL.setAttribute('playsinline','');const p=SIL.play();p&&p.catch(()=>{UNMUTED=false})}catch(e){}}
 // 천천히: 아이폰은 속도 값만 바꾸면 차이가 작아서 단어 사이를 쉼표로 끊어 읽음
 function saySlow(t){const txt=shown(t);if(IOS)say(txt.replace(/[,.;:]/g,'').split(/\s+/).join(', '),0.5);else say(txt,0.55)}
 
@@ -275,7 +293,7 @@ function unplace(k){const q=G.items[G.i];if(q.answered)return;q.placed.splice(k,
 function checkBuild(){const q=G.items[G.i];if(!q.placed.length)return;const v=q.placed.map(i=>q.tiles[i].t).join(' ');q.user=v;const r=check(v,q.item);const ok=r.res!=='no';sayAuto(q.item.es);const d=diffHtml(v,r.best);finish(ok,`<div class="res ${ok?'ok':'no'}"><div class="h">${ok?'¡Muy bien! 정답':'순서를 다시 보세요'}</div>${ok?'':`<div>내 답: ${d.u}</div>${confuseTip(v,r.best)}`}<div class="es">${ok?esc(shown(r.best)):d.b}</div>${q.item.tip?`<div class="tip">💡 ${esc(q.item.tip)}</div>`:''}</div>`)}
 
 function hint(){const q=G.items[G.i];const w=shown(q.item.es).split(/\s+/);$('#heard').innerHTML=`힌트: <b>${esc(w[0])} ${w.length>2?esc(w[1]):''}</b> … (${w.length}단어)`}
-async function dictate(){const h=$('#heard');h.textContent='듣는 중… 말을 마치면 잠시 기다리세요';try{const alts=await listen(t=>h.textContent='🎙 '+t);if(!alts.length){h.textContent=emptyMsg();return}const q=G.items[G.i];let best=alts[0];for(const a of alts)if(check(a,q.item).res!=='no'){best=a;break}$('#ans').value=best;h.textContent='확인 버튼을 누르세요 (고쳐도 돼요)'}catch(e){h.textContent=micErr(e)}}
+async function dictate(){const h=$('#heard');h.textContent='듣는 중… 말을 멈추고 '+(S.wait||4)+'초 지나면 끝나요';try{const alts=await listen(t=>h.textContent='🎙 '+t);if(!alts.length){h.textContent=emptyMsg();return}const q=G.items[G.i];let best=alts[0];for(const a of alts)if(check(a,q.item).res!=='no'){best=a;break}$('#ans').value=best;h.textContent='확인 버튼을 누르세요 (고쳐도 돼요)'}catch(e){h.textContent=micErr(e)}}
 function micErr(e){const c=e.message;
  if(IOS&&(c==='not-allowed'||c==='service-not-allowed'))return'아이폰 설정이 필요해요: ① 설정 → 일반 → 키보드 → "받아쓰기 활성화" 켜기 ② 설정 → 앱 → Safari → 마이크 "허용" ③ 이 페이지를 새로고침';
  if(c==='not-allowed'||c==='service-not-allowed')return'마이크 권한이 꺼져 있어요. 주소창 왼쪽 자물쇠(또는 ⓘ) → 권한 → 마이크 허용 후 새로고침';
@@ -290,7 +308,7 @@ function inAppBanner(){return INAPP?`<div class="card" style="border-left:4px so
 async function micTest(){const o=$('#mt');if(!SR){o.textContent=noSrMsg();return}o.textContent='"Hola, buenos días"라고 말해 보세요…';try{const a=await listen(t=>o.textContent='🎙 '+t);o.textContent=a.length?'✅ 들린 말: '+a[0]:'소리가 안 들렸어요. 다시 해 보세요'}catch(e){o.textContent='❌ '+micErr(e)+' (코드: '+e.message+')'}}
 function typeInstead(){const q=G.items[G.i];q.kind='write';render()}
 function checkText(){const q=G.items[G.i];const v=$('#ans').value.trim();if(!v)return;judge(v)}
-async function speakNow(){const q=G.items[G.i];if(q.answered)return;const m=$('#mic'),h=$('#heard');if(REC){REC.stop();return}m.classList.add('on');h.textContent='듣는 중… (다 말하면 자동으로 끝나요)';try{const alts=await listen(t=>h.textContent='🎙 '+t);m.classList.remove('on');if(!alts.length){h.textContent=emptyMsg();return}let best=alts[0];for(const a of alts){if(check(a,q.item).res!=='no'){best=a;break}}h.textContent='들은 문장: '+best;judge(best,true)}catch(e){m.classList.remove('on');h.textContent=micErr(e)}}
+async function speakNow(){const q=G.items[G.i];if(q.answered)return;const m=$('#mic'),h=$('#heard');if(REC){REC.stop();return}m.classList.add('on');h.textContent='듣는 중… 말을 멈추고 '+(S.wait||4)+'초 지나면 끝나요 (🎙 다시 누르면 바로 끝)';try{const alts=await listen(t=>h.textContent='🎙 '+t);m.classList.remove('on');if(!alts.length){h.textContent=emptyMsg();return}let best=alts[0];for(const a of alts){if(check(a,q.item).res!=='no'){best=a;break}}h.textContent='들은 문장: '+best;judge(best,true)}catch(e){m.classList.remove('on');h.textContent=micErr(e)}}
 function judge(v,spoken){const q=G.items[G.i];q.user=v;q.spoken=!!spoken;const it=q.item;const r=check(v,it);sayAuto(r.best);const tip=it.tip?`<div class="tip">💡 ${esc(it.tip)}</div>`:'';
  if(r.res==='ok')return finish(true,`<div class="res ok"><div class="h">¡Perfecto! 정답</div><div class="es">${esc(shown(r.best))}</div>${otherAns(it,r.best)}${tip}</div>`);
  if(r.res==='mid')return finish(true,spoken?`<div class="res ok"><div class="h">¡Muy bien! 정답</div><div class="es">${esc(shown(r.best))}</div>${tip}</div>`:`<div class="res mid"><div class="h">거의 맞았어요 — 강세·ñ 확인</div><div class="es">${accentDiff(v,r.best)}</div>${tip}</div>`);
@@ -324,6 +342,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <label class="f">이름</label><input type="text" id="nm" value="${esc(S.name)}" maxlength="12">
 <label class="f">한 판 문제 수</label><div class="seg">${[8,12,20].map(n=>`<button class="${S.n===n?'on':''}" onclick="S.n=${n};save();settings()">${n}</button>`).join('')}</div>
 <label class="f">정답 자동으로 읽어 주기</label><div class="seg"><button class="${autoOn()?'on':''}" onclick="S.autoTTS=true;save();settings()">켜기</button><button class="${autoOn()?'':'on'}" onclick="S.autoTTS=false;save();settings()">끄기</button></div><div class="tip">아이폰은 소리가 난 직후 마이크가 막힐 수 있어서 기본이 '끄기'예요. 🔊 버튼은 언제든 눌러서 들을 수 있어요.</div>
+<label class="f">말하기: 말을 멈춘 뒤 기다리는 시간</label><div class="seg">${[2.5,4,6].map(w=>`<button class="${(S.wait||4)===w?'on':''}" onclick="S.wait=${w};save();settings()">${w}초</button>`).join('')}</div><div class="tip">천천히 생각하면서 말하면 6초로 해 두세요.</div>
 <label class="f">읽어 주는 속도</label><div class="seg">${[[0.65,'천천히'],[0.85,'보통'],[1,'빠르게']].map(([r,t])=>`<button class="${S.rate===r?'on':''}" onclick="S.rate=${r};save();say('Hola, ¿qué tal?');settings()">${t}</button>`).join('')}</div>
 <div class="card ai" style="margin-top:18px"><b>✨ Claude 첨삭·새 문장 (선택)</b><p class="mut" style="margin:6px 0">Anthropic API 키를 넣으면 이 앱 안에서 바로 첨삭받고 새 문장을 만들 수 있어요. 키는 이 휴대폰에만 저장되고 Anthropic 서버로만 보내져요. 키가 없어도 "Claude 앱에서 물어보기"로 똑같이 쓸 수 있어요.</p>
 <label class="f">API 키</label><input type="password" id="key" value="${esc(S.key)}" placeholder="sk-ant-…" autocomplete="off">
@@ -333,7 +352,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <div class="row"><button class="btn soft" onclick="if(confirm('오늘 기록·오답 노트·AI 문장을 모두 지울까요?')){localStorage.removeItem(KEY);location.reload()}">기록 모두 지우기</button></div>
 <div class="card"><b>🎙 마이크 테스트</b><div class="row"><button class="btn soft" onclick="micTest()">테스트 시작</button></div><div id="mt" class="mut" style="margin-top:8px">${SR?'':esc(noSrMsg())}</div>
 <div class="tip">아이폰: Safari로 열고, 설정 → 일반 → 키보드 → "받아쓰기 활성화"를 켜야 해요. 그래도 안 되면 문제 화면의 "⌨ 쓰기로 답하기"에서 키보드 🎤(스페인어 키보드)로 말해도 돼요.</div></div>
-<p class="mut">버전 11-05d · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut">버전 11-06a · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 /* ---------- Claude ---------- */
 let SDK=null;
