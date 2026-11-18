@@ -1,16 +1,40 @@
 // 문장 데이터 — 한 줄에 하나: 단계|한국어|스페인어|다른 정답(;로 구분)|팁
 // 단계 1 = 교재 수준, 2 = 조금 더 활용. ( ) 안 단어는 생략해도 정답 (예: (Yo) soy coreano.)
-// 새 문장은 각 과 맨 아래에 이어서 추가하기 (중간에 끼우면 오답 기록 번호가 밀림)
+// 새 문장은 각 과 맨 아래에 이어서 추가하기
 const LESSONS = {
-  1: { title: '1과 ¡Hola! ¿Qué tal?', sub: '인사 · 이름 · 국적 · 직업 · ser',
-       grammar: '인사, 이름 묻고 답하기(llamarse: me llamo, te llamas, se llama), 국적·출신(ser de), 직업, 명사의 성과 수, ser 동사(soy, eres, es, somos, sois, son), hablar 현재형, trabajar en' },
-  2: { title: '2과 ¿Cómo eres?', sub: '외모 · 성격 · 색 · 나이 · tener',
-       grammar: '정관사·부정관사(el/la/los/las, un/una/unos/unas), 외모·성격·색 형용사와 성·수 일치, 숫자 0~100, tener 동사(tengo, tienes, tiene, tenemos, tenéis, tienen), 나이(Tengo ~ años), tener los ojos/el pelo ~' },
-  3: { title: '3과 ¿Dónde estás?', sub: '물건 · 집 · 위치 · hay / estar · 상태',
-       grammar: 'hay(처음 말하는 것의 존재) vs estar(아는 것의 위치), 위치 표현(al lado de, cerca de, lejos de, encima de, debajo de, delante de, detrás de, dentro de, entre A y B, enfrente de, a la derecha/izquierda de), de+el=del, estar 변화(estoy, estás, está, estamos, estáis, están), estar+상태 형용사, tener+hambre/sed/frío/calor/sueño/prisa/miedo, ser vs estar' }
+  0: { title: '예비과 Alfabeto', sub: '알파벳 · 발음 · 강세 · 교실 표현' },
+  1: { title: '1과 ¡Hola! ¿Qué tal?', sub: '인사 · 이름 · 국적 · 직업 · ser' },
+  2: { title: '2과 ¿Cómo eres?', sub: '외모 · 성격 · 색 · 나이 · tener' },
+  3: { title: '3과 ¿Dónde estás?', sub: '물건 · 집 · 위치 · hay / estar · 상태' },
+  4: { title: '4과 ¿Qué clases tomas?', sub: '수업 · 빈도 · 요일 · 현재형 규칙 동사 · 소유사 · 의문사' },
+  5: { title: '5과 ¿Cuánto cuesta?', sub: '가격 · 숫자 100~ · 지시사 · 옷 · muy/mucho · ir a' },
+  6: { title: '6과 ¿Cómo es tu familia?', sub: '가족 · gustar · 식당 · 어간 변화 동사 · me/te/le' },
+  7: { title: '7과 ¿Qué tiempo hace hoy?', sub: '날짜 · 날씨 · 집안일 · tener que · yo 불규칙 · lo/la' },
+  8: { title: '8과 ¿A qué hora te levantas?', sub: '시각 · tardar/durar · 재귀동사 · 서로 ~하다' },
+  9: { title: '9과 ¿Quién es tu jugador favorito?', sub: '예술 · 취미 · 교통 · 부정어 · 대명사 두 개 · saber/conocer' }
 };
 
 const SENT_RAW = {
+0: `
+1|안녕!|¡Hola!||
+1|좋은 아침이에요.|Buenos días.||
+1|고마워요.|Gracias.|Muchas gracias.|
+1|천만에요.|De nada.||
+1|죄송해요.|Perdón.|Perdone.;Lo siento.|
+1|이름이 뭐야?|¿Cómo te llamas?||
+1|내 이름은 루시아야.|Me llamo Lucía.||
+1|어떻게 써요?|¿Cómo se escribe?||
+1|커피 한 잔 주세요.|Un café, por favor.||
+1|오렌지 주스 한 잔 주세요.|Un zumo de naranja, por favor.||
+1|물 주세요.|Agua, por favor.||
+1|계산서 주세요.|La cuenta, por favor.||
+1|아니요, 괜찮아요.|No, gracias.||
+1|이해가 안 돼요.|No entiendo.|(Yo) no entiendo.|
+1|좀 더 천천히 말해 주세요.|Más despacio, por favor.||
+1|한 번 더 해 주세요.|Otra vez, por favor.||
+1|내일 봐요.|Hasta mañana.||
+1|안녕히 가세요.|Adiós.||
+`,
 1: `
 1|안녕하세요, 좋은 아침이에요.|Hola, buenos días.||
 1|좋은 오후예요. 어떻게 지내세요?|Buenas tardes. ¿Cómo está usted?|Buenas tardes. ¿Cómo está?|usted에게는 está
@@ -165,65 +189,203 @@ const SENT_RAW = {
 2|나는 배고프지 않아. 그런데 아주 목말라.|No tengo hambre, pero tengo mucha sed.|(Yo) no tengo hambre, pero tengo mucha sed.|
 2|그 아이들은 소파에 앉아 있어요.|Los niños están sentados en el sofá.||niños = 아이들
 2|우리 선생님은 오늘 아파요. 집에 계세요. (여)|Mi profesora está enferma hoy. Está en casa.|Nuestra profesora está enferma hoy. Está en casa.;Hoy mi profesora está enferma. Está en casa.|
+`,
+4: `
+1|이번 학기에 수업 몇 개 들어?|¿Cuántas clases tomas este semestre?||
+1|네 과목 들어.|Tomo cuatro clases.|Tomo cuatro.|
+1|스페인어는 누가 가르쳐?|¿Quién enseña español?||
+1|너는 밖에서 자주 먹어?|¿Comes a menudo fuera de casa?||
+1|나는 꽤 바쁘게 살아.|(Yo) llevo una vida bastante ocupada.||
+1|우리 엄마는 요리를 아주 잘하셔.|Mi mamá cocina muy bien.|Mi madre cocina muy bien.|
+1|나는 밖에서 절대 안 먹어.|Nunca como fuera de casa.|No como nunca fuera de casa.|
+1|나는 토요일마다 스페인어를 공부해.|(Yo) estudio español los sábados.||los sábados = 토요일마다
+1|너는 아침에 커피 마셔?|¿Bebes café por la mañana?|¿Tú bebes café por la mañana?|
+1|우리 아빠는 신문을 읽으셔.|Mi padre lee el periódico.||
+1|우리는 서울에 살아.|(Nosotros) vivimos en Seúl.||
+1|너희는 집에서 먹니?|¿Coméis en casa?|¿Vosotros coméis en casa?|
+1|그들은 이메일을 많이 써.|(Ellos) escriben muchos correos.||
+1|당신은 스페인어를 아주 잘하시네요.|(Usted) habla muy bien español.|(Usted) habla español muy bien.|
+1|내 친구들은 살사 춤을 배워. (친구들이 여자)|Mis amigas aprenden a bailar salsa.||
+1|한 사람은 기타를 쳐요.|Una persona toca la guitarra.||
+1|크리스티나는 콜라를 마셔요.|Cristina bebe una Coca-Cola.||
+1|나는 3층에 살아.|Vivo en el tercer piso.||tercero → 남성 단수 명사 앞에서 tercer
+1|두 번째 과예요.|Es la segunda lección.||
+1|오늘이 내 첫날이야.|Es mi primer día.|Hoy es mi primer día.|
+1|너는 어디에서 일해?|¿Dónde trabajas?||
+1|뭘 읽어?|¿Qué lees?||
+1|어디 살아? — 서울에 살아.|¿Dónde vives? — Vivo en Seúl.||
+1|어디 가? — 도서관에 가.|¿Adónde vas? — Voy a la biblioteca.||
+1|파티는 언제야? — 금요일이야.|¿Cuándo es la fiesta? — Es el viernes.|¿Cuándo es la fiesta? — El viernes.|
+1|네 휴대폰 번호는 뭐야?|¿Cuál es tu número de móvil?||
+2|나는 서울에 살고 은행에서 일해.|Vivo en Seúl y trabajo en un banco.||
+2|우리 부모님은 부산에 사시고, 나는 서울에서 여동생이랑 살아.|Mis padres viven en Busan y yo vivo en Seúl con mi hermana.||
+2|나는 매일 아침 커피를 마시지만, 차는 절대 안 마셔.|Bebo café todas las mañanas, pero nunca bebo té.||
+2|왜 스페인어를 배워? — 내 애인이 스페인 사람이라서. (애인이 남자)|¿Por qué aprendes español? — Porque mi novio es español.||
+2|우리 선생님은 월요일과 수요일에 문학을 가르치세요. (선생님이 남자)|Nuestro profesor enseña literatura los lunes y los miércoles.|Mi profesor enseña literatura los lunes y los miércoles.|
+2|너희 수업은 언제야? — 금요일이야.|¿Cuándo es vuestra clase? — Es el viernes.||
+`,
+5: `
+1|이 바나나 얼마예요?|¿Cuánto cuestan estos plátanos?||
+1|1킬로에 2유로예요.|Cuesta dos euros el kilo.|Cuestan dos euros el kilo.;Dos euros el kilo.|
+1|그럼 2킬로 주세요.|Pues, dos kilos, por favor.|Dos kilos, por favor.|
+1|이건 뭐예요?|¿Qué es esto?||
+1|이 셔츠 아주 예쁘다.|Esta camisa es muy bonita.||
+1|그 부츠 얼마예요?|¿Cuánto cuestan esas botas?||
+1|저 신사분은 우리 선생님이야.|Aquel señor es mi profesor.||
+1|이 바지는 비싸.|Estos pantalones son caros.||
+1|노란 셔츠 입은 그 신사분 누구야?|¿Quién es ese señor de camisa amarilla?||
+1|그는 항상 정장을 입어.|(Él) siempre lleva traje.||llevar = (옷을) 입고 있다
+1|그녀는 빨간 치마를 입고 있어.|(Ella) lleva una falda roja.||
+1|이 외투는 아주 비싸.|Este abrigo es muy caro.||
+1|나 무척 배고파.|Tengo mucha hambre.||muy가 아니라 mucha + 명사
+1|마드리드에는 관광객이 많아.|Hay muchos turistas en Madrid.|En Madrid hay muchos turistas.|
+1|우리 형은 일을 많이 해.|Mi hermano trabaja mucho.||
+1|그 선생님은 아주 잘 가르쳐.|El profesor enseña muy bien.||
+1|나는 티셔츠가 많아.|Tengo muchas camisetas.||
+1|나는 슈퍼마켓에 가.|(Yo) voy al supermercado.||a + el = al
+1|오늘 밤 파티에 가?|¿Vas a la fiesta esta noche?||
+1|우리는 영화를 볼 거야.|(Nosotros) vamos a ver una película.||ir a + 동사원형 = ~할 것이다
+1|이번 토요일에 뭐 할 거야?|¿Qué vas a hacer este sábado?||
+1|그냥 집에 있을 것 같아.|Creo que voy a quedarme en casa.||
+1|여름 내내 일할 거예요.|Voy a trabajar todo el verano.||
+1|우리 부모님은 마드리드로 여행 가실 거야.|Mis padres van a viajar a Madrid.||
+2|그 부츠는 아주 예쁘지만 비싸요.|Esas botas son muy bonitas, pero caras.|Esas botas son muy bonitas, pero son caras.|
+2|저 여자분은 빨간 치마를 입고 있어요.|Aquella señora lleva una falda roja.||
+2|이 외투는 250유로예요.|Este abrigo cuesta doscientos cincuenta euros.||
+2|이번 주말에 뭐 할 거야? — 집에 있을 거야.|¿Qué vas a hacer este fin de semana? — Voy a quedarme en casa.||
+2|우리 형은 일을 많이 하고, 늘 아주 피곤해.|Mi hermano trabaja mucho y siempre está muy cansado.||
+2|이 셔츠 얼마예요? — 35유로예요.|¿Cuánto cuesta esta camisa? — Treinta y cinco euros.|¿Cuánto cuesta esta camisa? — Cuesta treinta y cinco euros.|
+2|여름에 우리는 스페인을 여행할 거야.|En verano vamos a viajar por España.||
+`,
+6: `
+1|형제 있어?|¿Tienes hermanos?||
+1|남자 형제 하나, 여자 형제 하나 있어.|Tengo un hermano y una hermana.||
+1|우리 형은 나보다 나이가 많아.|Mi hermano es mayor que yo.||
+1|우리 형은 결혼했어.|Mi hermano está casado.||
+1|미겔은 우리 아빠야.|Miguel es mi padre.||
+1|마리아는 우리 할머니야.|María es mi abuela.||
+1|후안과 파울라는 내 아이들이야.|Juan y Paula son mis hijos.||
+1|이사벨과 나는 나이가 같아.|Isabel y yo tenemos la misma edad.||
+1|나는 스페인 영화를 좋아해.|Me gusta el cine español.|A mí me gusta el cine español.|
+1|너는 스페인 노래들 좋아해?|¿Te gustan las canciones españolas?|¿A ti te gustan las canciones españolas?|복수 명사 → gustan
+1|우리는 노래하고 춤추는 걸 좋아해.|Nos gusta cantar y bailar.|A nosotros nos gusta cantar y bailar.|
+1|그녀는 패스트푸드를 좋아하지 않아.|(A ella) no le gusta la comida rápida.||
+1|친구들이랑 축구하는 거 좋아해?|¿Te gusta jugar al fútbol con los amigos?|¿Te gusta jugar al fútbol con tus amigos?|
+1|거의 일요일마다 축구해.|Juego al fútbol casi todos los domingos.||jugar: u → ue
+1|무엇을 드릴까요?|¿Qué desean?|¿Qué desea?|
+1|마실 것은요?|¿Y para beber?|¿Para beber?|
+1|후식은 뭐가 있어요?|¿Qué tienen de postre?||
+1|뭐 먹고 싶어?|¿Qué quieres comer?||
+1|오늘은 파티에 못 가.|Hoy no puedo ir a la fiesta.||poder: o → ue
+1|내 여동생은 집밥을 더 좋아해.|Mi hermana prefiere la comida de casa.||
+1|우리는 2시에 점심을 먹어.|(Nosotros) almorzamos a las dos.||
+1|수업은 몇 시에 시작해?|¿A qué hora empieza la clase?||
+1|나는 늘 파에야를 주문해.|(Yo) siempre pido paella.||pedir: e → i
+1|그 사람 이름 기억나?|¿Recuerdas su nombre?||
+1|엄마가 나에게 돈을 주셔.|Mi madre me da dinero.||
+1|나는 엄마에게 꽃을 선물해.|Le regalo flores a mi madre.||a mi madre가 있어도 le를 함께
+2|우리 부모님은 개를 좋아하세요.|A mis padres les gustan los perros.||
+2|우리 아빠는 고기 먹는 걸 무척 좋아하셔.|A mi padre le gusta mucho comer carne.||
+2|저는 전식으로 해산물 파에야, 주요리로 생선 주세요.|Yo, de primero, una paella de mariscos y, de segundo, pescado.||
+2|나는 축구 하는 건 안 좋아하지만, 축구 보는 건 좋아해.|No me gusta jugar al fútbol, pero me gusta ver el fútbol.||
+2|우리 가족은 다섯 명이에요.|En mi familia somos cinco.|Somos cinco en mi familia.|
+`,
+7: `
+1|네 생일은 언제야?|¿Cuándo es tu cumpleaños?||
+1|10월 1일이야.|Es el primero de octubre.|Es el uno de octubre.|1일은 el primero
+1|오늘 날씨 어때?|¿Qué tiempo hace hoy?||
+1|날씨 좋아.|Hace buen tiempo.||
+1|더워.|Hace calor.||
+1|바람이 불어.|Hace viento.||
+1|흐려.|Está nublado.||
+1|비가 많이 와.|Llueve mucho.||
+1|무척 추워.|Hace mucho frío.||
+1|안개가 꼈어.|Hay niebla.||
+1|크리스마스는 12월 25일이에요.|La Navidad es el veinticinco de diciembre.||
+1|섣달그믐 밤은 언제야?|¿Cuándo es la Nochevieja?||
+1|집이 너무 더러워.|La casa está muy sucia.||
+1|내가 설거지할게.|(Yo) lavo los platos.||
+1|청소기 좀 돌려 줄래?|¿Quieres pasar la aspiradora?|¿Quieres pasar la aspiradora, por favor?|
+1|나는 다림질을 해야 해.|Tengo que planchar la ropa.||tener que + 동사원형
+1|내 남동생은 쓰레기를 버려야 해.|Mi hermano tiene que sacar la basura.||
+1|먹고 나서는 (누구나) 설거지를 해야 해.|Hay que lavar los platos después de comer.||hay que = 누구나 ~해야 한다
+1|나는 8시에 집에서 나가.|Salgo de casa a las ocho.||
+1|너는 일요일마다 뭐 해?|¿Qué haces los domingos?||
+1|내가 상을 차릴게.|(Yo) pongo la mesa.||
+1|나는 그 사람 번호를 몰라.|No sé su número.||
+1|나는 지하철로 수업에 와.|Vengo a clase en metro.||
+1|빵 사? — 응, (그걸) 사.|¿Compras el pan? — Sí, lo compro.||
+1|부엌 청소해? — 아니, 안 해.|¿Limpias la cocina? — No, no la limpio.||
+1|나는 할머니를 찾아뵈어.|Visito a mi abuela.||사람 목적어 앞에는 a
+2|서울은 여름에 무척 덥고 비가 많이 와요.|En Seúl hace mucho calor en verano y llueve mucho.||
+2|내일은 흐리고 바람이 불 거예요.|Mañana va a estar nublado y va a hacer viento.||
+2|일요일마다 나는 공원에서 운동하고 조부모님을 뵈어.|Los domingos hago ejercicio en el parque y visito a mis abuelos.||
+2|우리는 집을 청소해야 해. 지금 (그걸) 청소할 거야.|Tenemos que limpiar la casa. Vamos a limpiarla ahora.|Tenemos que limpiar la casa. La vamos a limpiar ahora.|
+2|내가 파티에 후식을 가져갈게. 너는 뭘 가져와?|Traigo el postre a la fiesta. ¿Qué traes tú?||
+2|스페인에서는 12시에 포도 열두 알을 먹어.|En España tomamos doce uvas a las doce.||
+`,
+8: `
+1|몇 시야?|¿Qué hora es?||
+1|2시 10분이야.|Son las dos y diez.||
+1|1시 반이야.|Es la una y media.||1시만 Es la una
+1|7시 45분이야.|Son las ocho menos cuarto.||30분이 넘으면 다음 시 + menos
+1|9시 정각이야.|Son las nueve en punto.||
+1|스페인어 수업은 몇 시에 있어?|¿A qué hora tienes la clase de español?||
+1|3시 반에 있어.|La tengo a las tres y media.|A las tres y media.|
+1|수업은 얼마 동안 해?|¿Cuánto tiempo dura la clase?||
+1|50분 동안 해.|Dura cincuenta minutos.||
+1|우리는 공항까지 가는 데 한 시간 걸려.|Tardamos una hora en llegar al aeropuerto.||tardar en + 동사원형
+1|나는 7시에 잠이 깨.|Me despierto a las siete.||
+1|나는 이를 닦아.|Me cepillo los dientes.||
+1|나는 세수해.|Me lavo la cara.||
+1|나는 12시에 잠자리에 들어.|Me acuesto a las doce.||
+1|몇 시에 일어나?|¿A qué hora te levantas?||
+1|마리사는 집에 들어갈 때 신발을 벗어.|Marisa se quita los zapatos al entrar a casa.||
+1|무척 추워서 루르데스는 외투를 입어.|Como hace mucho frío, Lourdes se pone el abrigo.||
+1|빅토르는 운동한 뒤에 샤워해.|Víctor se ducha después de hacer ejercicio.||
+1|아나와 루이스는 서로 포옹해.|Ana y Luis se abrazan.||
+1|우리는 토요일마다 만나.|Nos vemos los sábados.||
+1|너희 서로 아는 사이야?|¿Os conocéis?|¿Vosotros os conocéis?|
+1|그들은 악수해.|Se dan la mano.|Ellos se dan la mano.|
+1|케이크랑 음료는 내가 맡을게.|Me encargo de la tarta y las bebidas.||
+2|나는 매일 7시에 일어나.|Me levanto a las siete todos los días.|Todos los días me levanto a las siete.|
+2|나는 샤워하고 머리를 말려.|Me ducho y me seco el pelo.||
+2|비행기는 몇 시야? — 10시 반이야.|¿A qué hora es el vuelo? — Es a las diez y media.||
+2|내 여동생은 12시에 잠자리에 들고 7시 45분에 일어나.|Mi hermana se acuesta a las doce y se levanta a las ocho menos cuarto.||
+2|스페인 사람들은 볼에 두 번 키스하고, 한국 사람들은 악수해요.|Los españoles se dan dos besos y los coreanos se dan la mano.||
+2|나는 세수하고, 이를 닦고, 8시에 집을 나서.|Me lavo la cara, me cepillo los dientes y salgo de casa a las ocho.||
+`,
+9: `
+1|스페인 예술 좋아해?|¿Te gusta el arte español?||
+1|나는 가우디의 건축을 정말 좋아해.|Me encanta la arquitectura de Gaudí.||
+1|내일 극장에 갈래?|¿Quieres ir al teatro mañana?||
+1|몇 번째 줄에 앉고 싶어?|¿En qué fila quieres sentarte?||
+1|내가 표를 예약할게.|Voy a reservar las entradas.||
+1|우리는 입장권을 사야 해.|Tenemos que comprar las entradas.||
+1|여가 시간에 뭐 하는 걸 좋아해?|¿Qué te gusta hacer en tu tiempo libre?||
+1|나는 운동하고 요리하는 걸 좋아해.|Me gusta hacer deporte y cocinar.||
+1|내 취미는 외국어 배우기야.|Mi afición es aprender idiomas.||
+1|나는 스페인어랑 영어를 정말 좋아해.|Me encantan el español y el inglés.||둘이라 복수 → encantan
+1|먼저 지하철을 타.|Primero tomo el metro.||
+1|시간이 얼마나 걸려? — 한 시간 걸려.|¿Cuánto tiempo se tarda? — Se tarda una hora.||
+1|집에 누구 있어? — 아니, 아무도 없어.|¿Hay alguien en casa? — No, no hay nadie.||
+1|뭐 필요해? — 아니, 아무것도 필요 없어.|¿Quieres algo? — No, no quiero nada.||
+1|나는 골프 안 좋아해. — 나도 안 좋아해.|No me gusta el golf. — A mí tampoco.||
+1|나는 재즈 좋아해. — 나도.|Me gusta el jazz. — A mí también.||
+1|나는 택시는 절대 안 타.|Nunca voy en taxi.|No voy nunca en taxi.|
+1|네 책 빌려줄래? — 응, 빌려줄게.|¿Me prestas tu libro? — Sí, te lo presto.||
+1|아나에게 꽃 줘? — 응, 줘.|¿Le das las flores a Ana? — Sí, se las doy.||le + las → se las
+1|너 수영할 줄 알아?|¿Sabes nadar?||saber + 동사원형 = ~할 줄 알다
+1|나는 마드리드를 아주 잘 알아.|Conozco Madrid muy bien.||
+1|박물관이 어디 있는지 몰라.|No sé dónde está el museo.||
+1|우리 형 알아?|¿Conoces a mi hermano?||사람 앞에는 a
+1|그들은 영어를 할 줄 알아.|(Ellos) saben hablar inglés.||
+1|우리는 좋은 식당을 하나 알아.|Conocemos un buen restaurante.||
+2|학교 갈 때 무슨 교통수단을 이용해? — 지하철을 타.|¿Qué transporte usas para ir a la escuela? — Tomo el metro.||
+2|이 영화 추천해? — 응, (그걸) 추천해.|¿Me recomiendas esta película? — Sí, te la recomiendo.||
+2|평이 아주 좋아. 게다가 배우들도 훌륭해.|Tiene muy buena crítica. Además, los actores son excelentes.||
+2|엄마에게 책을 선물할 거야. 내일 (그걸) 드릴 거야.|Voy a regalarle un libro a mi madre. Voy a dárselo mañana.|Voy a regalarle un libro a mi madre. Se lo voy a dar mañana.|
+2|공항에서는 (누구나) 줄을 서고 짐을 부쳐야 해요.|En el aeropuerto hay que hacer cola y facturar el equipaje.||
+2|나는 스페인에 아는 사람이 아무도 없지만, 스페인어를 조금 할 줄 알아.|No conozco a nadie en España, pero sé hablar un poco de español.||
 `
 };
-
-// 바꿔 말하기: 과|기본 문장|바꿀 조건|정답|다른 정답(;)|팁
-const DRILL_RAW = `
-1|(Yo) soy coreano.|그녀|(Ella) es coreana.|
-1|(Yo) soy coreano.|우리 (남)|(Nosotros) somos coreanos.|
-1|(Yo) soy coreano.|너희들 (여)|(Vosotras) sois coreanas.|(Ustedes) son coreanas.
-1|(Ella) es médica.|그|(Él) es médico.|
-1|(Ella) es médica.|그들|(Ellos) son médicos.|
-1|(Yo) soy de España.|우리|(Nosotros) somos de España.|(Nosotras) somos de España.
-1|(Él) es profesor.|그녀들|(Ellas) son profesoras.|
-1|Mi padre es cocinero.|우리 엄마|Mi madre es cocinera.|
-1|(Yo) soy alemán.|그녀|(Ella) es alemana.|
-1|(Él) es francés.|그들|(Ellos) son franceses.|
-1|(Ella) es japonesa.|그녀들|(Ellas) son japonesas.|
-1|(Tú) hablas español.|우리|(Nosotros) hablamos español.|(Nosotras) hablamos español.
-1|(Tú) hablas español.|그녀|(Ella) habla español.|
-1|(Yo) me llamo Ana.|그 / Luis|(Él) se llama Luis.|
-1|(Yo) me llamo Ana.|너 / Pablo|(Tú) te llamas Pablo.|
-1|¿De dónde eres?|usted에게|¿De dónde es usted?|¿De dónde es?
-1|(Yo) trabajo en un hospital.|그녀 / 약국|(Ella) trabaja en una farmacia.|(Ella) trabaja en la farmacia.
-1|Este es mi amigo.|친구가 여자일 때 (애인 아님)|Esta es mi amiga.|
-2|(Él) es alto.|그녀들|(Ellas) son altas.|
-2|Mi hermano es simpático.|내 여동생|Mi hermana es simpática.|
-2|(Yo) tengo veinte años.|그녀|(Ella) tiene veinte años.|
-2|(Yo) tengo veinte años.|우리|(Nosotros) tenemos veinte años.|(Nosotras) tenemos veinte años.
-2|El perro es negro.|복수로|Los perros son negros.|
-2|La casa es blanca.|복수로|Las casas son blancas.|
-2|(Ella) es inteligente.|그들|(Ellos) son inteligentes.|
-2|(Él) es trabajador.|그녀|(Ella) es trabajadora.|
-2|(Yo) tengo un hermano.|너|(Tú) tienes un hermano.|
-2|(Yo) tengo un hermano.|그들|(Ellos) tienen un hermano.|
-2|un libro|복수로|unos libros|
-2|la silla|복수로|las sillas|
-2|el lápiz|복수로|los lápices||z로 끝나면 z → ces
-2|La flor es roja.|복수로|Las flores son rojas.|
-2|(Ella) es optimista.|그들|(Ellos) son optimistas.|
-2|(Tú) eres tímido.|너희들 (남)|(Vosotros) sois tímidos.|(Ustedes) son tímidos.
-2|¿Cuántos años tienes?|usted에게|¿Cuántos años tiene usted?|¿Cuántos años tiene?
-2|(Él) es alto y rubio.|반대로 (작고 갈색 피부)|(Él) es bajo y moreno.|
-3|(Yo) estoy cansado.|그녀|(Ella) está cansada.|
-3|(Yo) estoy cansado.|우리 (여)|(Nosotras) estamos cansadas.|
-3|El libro está en la mesa.|책들|Los libros están en la mesa.|
-3|Hay un parque.|공원 두 개|Hay dos parques.|
-3|El banco está cerca.|반대로|El banco está lejos.|
-3|La silla está delante de la mesa.|반대로|La silla está detrás de la mesa.|
-3|El perro está encima de la cama.|반대로|El perro está debajo de la cama.|
-3|(Yo) tengo frío.|그 / 덥다|(Él) tiene calor.|
-3|(Tú) estás triste.|너희들 (남)|(Vosotros) estáis tristes.|(Ustedes) están tristes.
-3|La ventana está abierta.|창문들|Las ventanas están abiertas.|
-3|Carmen es alegre.|지금 상태로|Ahora Carmen está alegre.|Carmen está alegre ahora.
-3|El baño está al lado del dormitorio.|부엌 / 거실|La cocina está al lado del salón.|
-3|(Yo) estoy en casa.|그들 / 공원|(Ellos) están en el parque.|
-3|¿Dónde está el baño?|화장실들|¿Dónde están los baños?|
-3|Hay una farmacia aquí.|질문으로 / 이 근처|¿Hay una farmacia por aquí?|
-3|(Ella) tiene hambre.|나 / 무척|(Yo) tengo mucha hambre.|
-3|El parque está cerca de la escuela.|은행 / 병원 옆|El banco está al lado del hospital.|
-3|La televisión está apagada.|컴퓨터|El ordenador está apagado.|La computadora está apagada.
-1|Este es mi amigo.|친구가 아니라 애인(남)으로|Este es mi novio.|
-1|Esta es mi amiga.|친구가 아니라 애인(여)으로|Esta es mi novia.|
-`;
