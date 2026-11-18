@@ -236,7 +236,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <label class="f">정답 자동으로 읽어 주기</label><div class="seg"><button class="${autoOn()?'on':''}" onclick="S.autoTTS=true;save();settings()">켜기</button><button class="${autoOn()?'':'on'}" onclick="S.autoTTS=false;save();settings()">끄기</button></div>
 <div class="tip">아이폰은 기본이 '끄기'예요. 🔊 버튼은 언제든 눌러서 들을 수 있어요. 소리가 안 나면 무음 스위치를 꺼 보세요.</div>
 <div class="row" style="margin-top:20px"><button class="btn soft" onclick="say('Hola, buenos días')">🔊 소리 테스트</button></div>
-<p class="mut" style="margin-top:20px">버전 11-18a · 예비과~9과 · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut" style="margin-top:20px">버전 11-19a · 예비과~9과 · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 home();
 </script>
