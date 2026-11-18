@@ -68,6 +68,11 @@ label.f{display:block;margin:14px 0 4px;font-weight:600;font-size:.92rem}
 .seg{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
 .seg button{flex:1;border:none;background:#fff;padding:9px;font:inherit;cursor:pointer;color:inherit}
 .seg button.on{background:var(--red2);color:var(--red);font-weight:600}
+.star{border:1px solid var(--line);background:#fff;border-radius:10px;font-size:1.15rem;cursor:pointer;padding:4px 8px;min-width:44px;min-height:40px;color:#c9c1b8;vertical-align:middle}
+.star.on{color:var(--yel);border-color:var(--yel);background:#fff8e1}
+.qstar{float:right;margin:-4px -4px 4px 8px}
+.veil{background:#ece6de;color:transparent;border-radius:6px;cursor:pointer;user-select:none}
+.starbtn{display:block;width:100%;margin-top:12px;background:#fff8e1;border:1.5px solid var(--yel);border-radius:12px;padding:12px;font:inherit;font-weight:600;cursor:pointer;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -79,7 +84,7 @@ label.f{display:block;margin:14px 0 4px;font-weight:600;font-size:.92rem}
 /* ---------- 저장 (이 기기에만) ---------- */
 const KEY='esj-v2';
 const OLD=(()=>{try{return JSON.parse(localStorage.getItem('esj-v1')||'{}')}catch(e){return{}}})();
-const S=Object.assign({lessons:[0,1,2,3,4,5,6,7,8,9],rate:OLD.rate||0.85,n:12,autoTTS:OLD.autoTTS,days:{}},(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}})());
+const S=Object.assign({lessons:[0,1,2,3,4,5,6,7,8,9],rate:OLD.rate||0.85,n:12,autoTTS:OLD.autoTTS,days:{},stars:[],hideEs:false},(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}})());
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 
@@ -92,6 +97,11 @@ for(const l in WORDS)WORDS[l].forEach(([es,ko,cat],i)=>WORD.push({id:`w${l}-${i}
 const NOUN=[];
 {const seen=new Set;for(const w of WORD){const m=w.es.match(/^(el|la|los|las) (.+)$/);if(!m||/\//.test(w.es))continue;const fem=/\(f\.\)/.test(m[2]);const noun=m[2].replace(/\s*\(f\.\)/,'').replace(/\s*\([^)]{13,}\)/g,'').trim();if(seen.has(noun))continue;seen.add(noun);NOUN.push({id:'n'+w.id,l:w.l,es:w.es.replace(/\s*\(f\.\)/,''),art:m[1],noun,ko:w.ko,fem})}}
 const inL=x=>S.lessons.includes(x.l);
+// 별표: 내용으로 저장 (문장 순서가 바뀌어도 유지)
+SENT.forEach(x=>x.key='s:'+x.es);WORD.forEach(x=>x.key='w:'+x.es+'='+x.ko);NOUN.forEach(x=>x.key='n:'+x.es);
+const isStar=x=>S.stars.includes(x.key);
+function togStar(key,el,re){const i=S.stars.indexOf(key);if(i>=0)S.stars.splice(i,1);else S.stars.push(key);save();const on=i<0;if(el){el.classList.toggle('on',on);el.textContent=on?'★':'☆'}if(re)starPage();else toast(on?'⭐ 별표 복습에 담았어요':'별표를 뺐어요')}
+const starBtn=(it,re)=>`<button class="star ${isStar(it)?'on':''}" title="별표" onclick='togStar(${esc(JSON.stringify(it.key))},this${re?',1':''})'>${isStar(it)?'★':'☆'}</button>`;
 
 /* ---------- 문자열 ---------- */
 const NUM={0:'cero',1:'uno',2:'dos',3:'tres',4:'cuatro',5:'cinco',6:'seis',7:'siete',8:'ocho',9:'nueve',10:'diez',11:'once',12:'doce',13:'trece',14:'catorce',15:'quince',16:'dieciséis',17:'diecisiete',18:'dieciocho',19:'diecinueve',20:'veinte',21:'veintiuno',22:'veintidós',23:'veintitrés',24:'veinticuatro',25:'veinticinco',26:'veintiséis',27:'veintisiete',28:'veintiocho',29:'veintinueve'};
@@ -160,6 +170,7 @@ function home(){G=null;const d=S.days[today()]||{n:0,ok:0};const ls=Object.keys(
 <div class="row" style="margin-top:4px;gap:12px"><button class="link" onclick="S.lessons=${JSON.stringify(ls)};save();home()">전체 선택</button><button class="link" onclick="S.lessons=[];save();home()">모두 해제</button></div>
 <h2>연습 고르기</h2>
 <div class="modes">${Object.entries(MODES).map(([k,m])=>`<button class="mode" onclick="start('${k}')"><i>${m.i}</i><b>${m.name}</b><span>${m.sub}</span></button>`).join('')}</div>
+<button class="starbtn" onclick="starPage()">⭐ 별표 복습 · ${S.stars.length}개</button>
 <p class="mut" style="margin-top:14px">선택한 범위: 단어 ${WORD.filter(inL).length} · 명사 ${NOUN.filter(inL).length} · 문장 ${SENT.filter(inL).length}</p>`}
 function togL(l){const i=S.lessons.indexOf(l);if(i>=0)S.lessons.splice(i,1);else S.lessons.push(l);S.lessons.sort((a,b)=>a-b);save();home()}
 
@@ -174,12 +185,18 @@ function makeItems(mode){const n=S.n;const sents=SENT.filter(inL);
  if(mode==='gender')return pick(NOUN.filter(inL),n).map(x=>({kind:'gender',item:x}));
  if(mode==='build')return pick(sents.filter(s=>{const c=tokens(s).length;return c>=3&&c<=14}),n).map(buildQ);
  if(mode==='listen')return pick(sents,n).map(s=>listenQ(s,sents))}
-function start(mode,items){if(!S.lessons.length)return toast('학습할 과를 먼저 고르세요');items=items||makeItems(mode);if(!items.length)return toast('이 범위에는 문제가 없어요');G={mode,items,i:0,ok:0};render()}
+function start(mode,items,src){if(!items&&!S.lessons.length)return toast('학습할 과를 먼저 고르세요');items=items||makeItems(mode);if(!items.length)return toast('이 범위에는 문제가 없어요');G={mode,items,i:0,ok:0,src};render()}
+function starItems(mode){const ss=SENT.filter(isStar);
+ if(mode==='word')return pick(WORD.filter(isStar),S.n).map(wordQ);
+ if(mode==='gender')return pick(NOUN.filter(isStar),S.n).map(x=>({kind:'gender',item:x}));
+ if(mode==='build')return pick(ss.filter(x=>{const c=tokens(x).length;return c>=3&&c<=14}),S.n).map(buildQ);
+ return pick(ss,S.n).map(x=>listenQ(x,SENT))}
+function startStar(mode){const it=starItems(mode);if(!it.length)return toast('별표한 것이 없어요');start(mode,it,'star')}
 
 /* ---------- 문제 화면 ---------- */
 function head(){return`<div class="top"><button class="icon" onclick="if(confirm('그만할까요?'))home()">✕</button><div class="sp mut" style="text-align:center">${MODES[G.mode].name} · ${G.i+1} / ${G.items.length}</div><div class="mut">✓ ${G.ok}</div></div><div class="bar"><i style="width:${G.i/G.items.length*100}%"></i></div>`}
 const lTag=it=>`<span class="tag">${it.l===0?'예비과':it.l+'과'}</span>`;
-function render(){if(G.i>=G.items.length)return done();const q=G.items[G.i];q.answered=false;const it=q.item;let h=head()+'<div class="card">';
+function render(){if(G.i>=G.items.length)return done();const q=G.items[G.i];q.answered=false;const it=q.item;let h=head()+`<div class="card"><span class="qstar">${starBtn(it)}</span>`;
  if(q.kind==='word'){const label={es2ko:'뜻을 고르세요',ko2es:'스페인어를 고르세요',listen:'듣고 뜻을 고르세요'}[q.t];
   h+=`<div class="mut">${label} ${lTag(it)}<span class="tag">${esc(it.cat)}</span></div>`;
   if(q.t==='es2ko')h+=`<div class="q es">${esc(it.es)} <button class="speak" onclick="say(G.items[G.i].item.es)">🔊</button></div>`;
@@ -221,13 +238,24 @@ function giveUp(){const q=G.items[G.i];if(q.answered)return;const it=q.item;q.us
 function qLine(q){const it=q.item;if(q.kind==='word')return`${esc(it.es)} = ${esc(it.ko)}`;if(q.kind==='gender')return`${esc(it.es)} = ${esc(it.ko)}`;return`${esc(it.ko)}<br><span class="es">${esc(shown(it.es))}</span>`}
 function done(){const n=G.items.length,ok=G.ok;const wrong=G.items.filter(q=>!q.ok);
  app.innerHTML=`<h1>${ok===n?'¡Perfecto! 🎉':ok>=n*0.7?'¡Muy bien! 👏':'¡Ánimo! 💪'}</h1><div class="stat"><div><b>${ok} / ${n}</b><span class="mut">맞힌 문제</span></div><div><b>${(S.days[today()]||{n:0}).n}</b><span class="mut">오늘 전체</span></div></div>
-${wrong.length?`<h2>틀린 문제</h2><div class="card"><ul class="list">${wrong.map(q=>`<li>${qLine(q)} <button class="speak" onclick='say(${esc(JSON.stringify(q.item.es))})'>🔊</button></li>`).join('')}</ul></div>`:''}
-<div class="row">${wrong.length?'<button class="btn ghost" onclick="retryWrong()">틀린 것만 다시</button>':''}<button class="btn" onclick="start(G.mode)">한 판 더</button></div>
-<div class="row"><button class="btn soft" onclick="home()">처음으로</button>${wrong.length?'<button class="btn soft" onclick="askDone()">📋 Claude에게 해설 묻기</button>':''}</div><div id="askout"></div>`}
-function retryWrong(){const w=G.items.filter(q=>!q.ok).map(q=>{const it=q.item;if(q.kind==='word')return wordQ(it);if(q.kind==='gender')return{kind:'gender',item:it};if(q.kind==='build')return buildQ(it);return listenQ(it,SENT.filter(inL))});start(G.mode,shuffle(w))}
+${wrong.length?`<h2>틀린 문제</h2><div class="card"><ul class="list">${wrong.map(q=>`<li>${qLine(q)} <button class="speak" onclick='say(${esc(JSON.stringify(q.item.es))})'>🔊</button> ${starBtn(q.item)}</li>`).join('')}</ul></div>`:''}
+<div class="row">${wrong.length?'<button class="btn ghost" onclick="retryWrong()">틀린 것만 다시</button>':''}<button class="btn" onclick="G.src==='star'?startStar(G.mode):start(G.mode)">한 판 더</button></div>
+<div class="row"><button class="btn soft" onclick="home()">처음으로</button>${wrong.length?'<button class="btn soft" onclick="askDone()">📋 Claude에게 해설 묻기</button>':''}</div>${G.src==='star'?'<div class="row"><button class="btn soft" onclick="starPage()">⭐ 별표 목록으로</button></div>':''}<div id="askout"></div>`}
+function retryWrong(){const w=G.items.filter(q=>!q.ok).map(q=>{const it=q.item;if(q.kind==='word')return wordQ(it);if(q.kind==='gender')return{kind:'gender',item:it};if(q.kind==='build')return buildQ(it);return listenQ(it,G.src==='star'?SENT:SENT.filter(inL))});start(G.mode,shuffle(w),G.src)}
 function askDone(){const wrong=G.items.filter(q=>!q.ok);const lines=wrong.map((q,i)=>{const it=q.item;return`${i+1}. ${q.kind==='word'||q.kind==='gender'?`${it.es} = ${it.ko}`:`${it.ko} → ${shown(it.es)}`}${q.user?` (내 답: ${q.user})`:''}`}).join('\n');
  const t=`나는 스페인어를 배우는 한국인 초급 학습자야(교재 Curso de español 1). 앱의 '${MODES[G.mode].name}' 연습에서 틀린 문제야. 각각 왜 그런지 짧게 해설하고, 비슷한 연습 문제 5개(정답은 맨 아래)를 내 줘. 한국어로 쉽게.\n\n${lines}`;
  copy(t).then(ok=>{const url='https://claude.ai/new'+(t.length<1800?'?q='+encodeURIComponent(t):'');$('#askout').innerHTML=`<div class="card">${ok?'질문을 복사했어요.':'복사가 안 됐어요. 아래 글을 길게 눌러 복사하세요.'} Claude가 열리면 질문이 들어가 있거나, 없으면 붙여 넣기 하세요.<div class="row"><a class="btn" href="${url}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Claude 열기 ↗</a></div>${ok?'':`<textarea readonly style="width:100%;min-height:90px">${esc(t)}</textarea>`}</div>`})}
+
+/* ---------- 별표 복습 ---------- */
+function starPage(){G=null;const ss=SENT.filter(isStar),ws=WORD.filter(isStar),ns=NOUN.filter(isStar);const nb=ss.filter(x=>{const c=tokens(x).length;return c>=3&&c<=14}).length;
+ const veil=S.hideEs?' veil':'';const lt=it=>it.l===0?'예비과':it.l+'과';
+ const M=[['build',nb,'문장 '+nb+'개'],['listen',ss.length,'문장 '+ss.length+'개'],['word',ws.length,'단어 '+ws.length+'개'],['gender',ns.length,'명사 '+ns.length+'개']].filter(m=>m[1]);
+ app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>⭐ 별표 복습</h1>
+<div class="mut">문제 화면에서 ☆를 누르면 여기에 모여요. 과 범위와 상관없이 별표한 것만 나와요. 별표는 이 휴대폰(브라우저)에만 저장돼요.</div>
+${M.length?`<h2>별표한 것만 연습</h2><div class="modes">${M.map(([k,,c])=>`<button class="mode" onclick="startStar('${k}')"><i>${MODES[k].i}</i><b>${MODES[k].name}</b><span>${c}</span></button>`).join('')}</div>`:'<div class="card">아직 별표한 것이 없어요. 문제를 풀다가 외우고 싶은 문장이나 단어에서 ☆를 눌러 보세요.</div>'}
+${ss.length+ws.length+ns.length?`<h2>목록 보며 외우기</h2><div class="seg"><button class="${S.hideEs?'':'on'}" onclick="S.hideEs=false;save();starPage()">스페인어 보이기</button><button class="${S.hideEs?'on':''}" onclick="S.hideEs=true;save();starPage()">스페인어 가리기</button></div>${S.hideEs?'<div class="tip">가려진 칸을 누르면 보여요.</div>':''}`:''}
+${ss.length?`<h2>문장 ${ss.length}</h2><div class="card"><ul class="list">${ss.map(x=>`<li><span class="tag">${lt(x)}</span>${esc(x.ko)}<br><span class="es${veil}" onclick="this.classList.remove('veil')">${esc(shown(x.es))}</span> ${sayBtns(x.es)} ${starBtn(x,1)}</li>`).join('')}</ul></div>`:''}
+${ws.length+ns.length?`<h2>단어 ${ws.length+ns.length}</h2><div class="card"><ul class="list">${ws.concat(ns).map(x=>`<li><span class="tag">${lt(x)}</span><span class="es${veil}" onclick="this.classList.remove('veil')">${esc(x.es)}</span> = ${esc(x.ko)} <button class="speak" onclick='say(${esc(JSON.stringify(x.es))})'>🔊</button> ${starBtn(x,1)}</li>`).join('')}</ul></div>`:''}`;scrollTo(0,0)}
 
 /* ---------- 설정 ---------- */
 function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick="home()">← 처음</button><div class="sp"></div></div><h1>설정</h1>
@@ -236,7 +264,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <label class="f">정답 자동으로 읽어 주기</label><div class="seg"><button class="${autoOn()?'on':''}" onclick="S.autoTTS=true;save();settings()">켜기</button><button class="${autoOn()?'':'on'}" onclick="S.autoTTS=false;save();settings()">끄기</button></div>
 <div class="tip">아이폰은 기본이 '끄기'예요. 🔊 버튼은 언제든 눌러서 들을 수 있어요. 소리가 안 나면 무음 스위치를 꺼 보세요.</div>
 <div class="row" style="margin-top:20px"><button class="btn soft" onclick="say('Hola, buenos días')">🔊 소리 테스트</button></div>
-<p class="mut" style="margin-top:20px">버전 11-19a · 예비과~9과 · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut" style="margin-top:20px">버전 11-19b · 예비과~9과 · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 home();
 </script>
