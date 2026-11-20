@@ -84,7 +84,7 @@ label.f{display:block;margin:14px 0 4px;font-weight:600;font-size:.92rem}
 /* ---------- 저장 (이 기기에만) ---------- */
 const KEY='esj-v2';
 const OLD=(()=>{try{return JSON.parse(localStorage.getItem('esj-v1')||'{}')}catch(e){return{}}})();
-const S=Object.assign({lessons:[0,1,2,3,4,5,6,7,8,9],rate:OLD.rate||0.85,n:12,autoTTS:OLD.autoTTS,days:{},stars:[],hideEs:false},(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}})());
+const S=Object.assign({lessons:[0,1,2,3,4,5,6,7,8,9],rate:OLD.rate||0.85,n:12,autoTTS:OLD.autoTTS,days:{},stars:[],hideEs:false,lvl:2},(()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}})());
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 
@@ -97,6 +97,7 @@ for(const l in WORDS)WORDS[l].forEach(([es,ko,cat],i)=>WORD.push({id:`w${l}-${i}
 const NOUN=[];
 {const seen=new Set;for(const w of WORD){const m=w.es.match(/^(el|la|los|las) (.+)$/);if(!m||/\//.test(w.es))continue;const fem=/\(f\.\)/.test(m[2]);const noun=m[2].replace(/\s*\(f\.\)/,'').replace(/\s*\([^)]{13,}\)/g,'').trim();if(seen.has(noun))continue;seen.add(noun);NOUN.push({id:'n'+w.id,l:w.l,es:w.es.replace(/\s*\(f\.\)/,''),art:m[1],noun,ko:w.ko,fem})}}
 const inL=x=>S.lessons.includes(x.l);
+const inS=x=>inL(x)&&(S.lvl!==1||x.lv===1); // 문장: 고른 과 + 본책만/활용까지
 // 별표: 내용으로 저장 (문장 순서가 바뀌어도 유지)
 SENT.forEach(x=>x.key='s:'+x.es);WORD.forEach(x=>x.key='w:'+x.es+'='+x.ko);NOUN.forEach(x=>x.key='n:'+x.es);
 const isStar=x=>S.stars.includes(x.key);
@@ -168,10 +169,13 @@ function home(){G=null;const d=S.days[today()]||{n:0,ok:0};const ls=Object.keys(
 <h2>학습할 범위</h2>
 <div class="chips">${ls.map(l=>`<button class="chip ${S.lessons.includes(l)?'on':''}" onclick="togL(${l})">${l===0?'예비과':l+'과'}</button>`).join('')}</div>
 <div class="row" style="margin-top:4px;gap:12px"><button class="link" onclick="S.lessons=${JSON.stringify(ls)};save();home()">전체 선택</button><button class="link" onclick="S.lessons=[];save();home()">모두 해제</button></div>
+<h2>문장 범위</h2>
+<div class="seg">${[[1,'본책 문장만'],[2,'활용 문장까지']].map(([v,t])=>`<button class="${S.lvl===v?'on':''}" onclick="S.lvl=${v};save();home()">${t} <span class="mut">(${SENT.filter(x=>inL(x)&&(v===2||x.lv===1)).length})</span></button>`).join('')}</div>
+<div class="tip">문장 순서배열 · 듣고 해석 맞추기에 적용돼요.</div>
 <h2>연습 고르기</h2>
 <div class="modes">${Object.entries(MODES).map(([k,m])=>`<button class="mode" onclick="start('${k}')"><i>${m.i}</i><b>${m.name}</b><span>${m.sub}</span></button>`).join('')}</div>
 <button class="starbtn" onclick="starPage()">⭐ 별표 복습 · ${S.stars.length}개</button>
-<p class="mut" style="margin-top:14px">선택한 범위: 단어 ${WORD.filter(inL).length} · 명사 ${NOUN.filter(inL).length} · 문장 ${SENT.filter(inL).length}</p>`}
+<p class="mut" style="margin-top:14px">선택한 범위: 단어 ${WORD.filter(inL).length} · 명사 ${NOUN.filter(inL).length} · 문장 ${SENT.filter(inS).length}</p>`}
 function togL(l){const i=S.lessons.indexOf(l);if(i>=0)S.lessons.splice(i,1);else S.lessons.push(l);S.lessons.sort((a,b)=>a-b);save();home()}
 
 /* ---------- 문제 만들기 ---------- */
@@ -180,7 +184,7 @@ const NAMES=/^(Carlos|Juan|Carmen|Madrid|Minji|Ana|Lucía|Pablo|Luis|Kim|España
 function wordQ(w){const pool=WORD.filter(x=>x.id!==w.id&&x.ko!==w.ko&&x.es!==w.es);const same=pool.filter(x=>x.cat===w.cat);const t=['es2ko','ko2es','listen'][Math.floor(Math.random()*3)];const others=[];for(const x of shuffle(same.length>=3?same:pool).concat(shuffle(pool))){if(others.length>=3)break;if(!others.some(o=>o.ko===x.ko||o.es===x.es))others.push(x)}return{kind:'word',t,item:w,opts:shuffle([w,...others])}}
 function buildQ(s){const toks=tokens(s);if(!NAMES.test(toks[0]))toks[0]=toks[0].toLowerCase();let order=shuffle(toks.map((t,i)=>i));for(let k=0;k<5&&order.every((v,i)=>v===i);k++)order=shuffle(order);return{kind:'build',item:s,tiles:order.map(i=>({t:toks[i]})),placed:[]}}
 function listenQ(s,pool){const k=koKey(s.ko);const others=[];const near=shuffle(pool.filter(x=>x.l===s.l)),far=shuffle(pool);for(const x of near.concat(far)){if(others.length>=3)break;const xk=koKey(x.ko);if(xk!==k&&!others.some(o=>koKey(o.ko)===xk))others.push(x)}return{kind:'listen',item:s,opts:shuffle([s,...others])}}
-function makeItems(mode){const n=S.n;const sents=SENT.filter(inL);
+function makeItems(mode){const n=S.n;const sents=SENT.filter(inS);
  if(mode==='word')return pick(WORD.filter(inL),n).map(wordQ);
  if(mode==='gender')return pick(NOUN.filter(inL),n).map(x=>({kind:'gender',item:x}));
  if(mode==='build')return pick(sents.filter(s=>{const c=tokens(s).length;return c>=3&&c<=14}),n).map(buildQ);
@@ -241,7 +245,7 @@ function done(){const n=G.items.length,ok=G.ok;const wrong=G.items.filter(q=>!q.
 ${wrong.length?`<h2>틀린 문제</h2><div class="card"><ul class="list">${wrong.map(q=>`<li>${qLine(q)} <button class="speak" onclick='say(${esc(JSON.stringify(q.item.es))})'>🔊</button> ${starBtn(q.item)}</li>`).join('')}</ul></div>`:''}
 <div class="row">${wrong.length?'<button class="btn ghost" onclick="retryWrong()">틀린 것만 다시</button>':''}<button class="btn" onclick="G.src==='star'?startStar(G.mode):start(G.mode)">한 판 더</button></div>
 <div class="row"><button class="btn soft" onclick="home()">처음으로</button>${wrong.length?'<button class="btn soft" onclick="askDone()">📋 Claude에게 해설 묻기</button>':''}</div>${G.src==='star'?'<div class="row"><button class="btn soft" onclick="starPage()">⭐ 별표 목록으로</button></div>':''}<div id="askout"></div>`}
-function retryWrong(){const w=G.items.filter(q=>!q.ok).map(q=>{const it=q.item;if(q.kind==='word')return wordQ(it);if(q.kind==='gender')return{kind:'gender',item:it};if(q.kind==='build')return buildQ(it);return listenQ(it,G.src==='star'?SENT:SENT.filter(inL))});start(G.mode,shuffle(w),G.src)}
+function retryWrong(){const w=G.items.filter(q=>!q.ok).map(q=>{const it=q.item;if(q.kind==='word')return wordQ(it);if(q.kind==='gender')return{kind:'gender',item:it};if(q.kind==='build')return buildQ(it);return listenQ(it,G.src==='star'?SENT:SENT.filter(inS))});start(G.mode,shuffle(w),G.src)}
 function askDone(){const wrong=G.items.filter(q=>!q.ok);const lines=wrong.map((q,i)=>{const it=q.item;return`${i+1}. ${q.kind==='word'||q.kind==='gender'?`${it.es} = ${it.ko}`:`${it.ko} → ${shown(it.es)}`}${q.user?` (내 답: ${q.user})`:''}`}).join('\n');
  const t=`나는 스페인어를 배우는 한국인 초급 학습자야(교재 Curso de español 1). 앱의 '${MODES[G.mode].name}' 연습에서 틀린 문제야. 각각 왜 그런지 짧게 해설하고, 비슷한 연습 문제 5개(정답은 맨 아래)를 내 줘. 한국어로 쉽게.\n\n${lines}`;
  copy(t).then(ok=>{const url='https://claude.ai/new'+(t.length<1800?'?q='+encodeURIComponent(t):'');$('#askout').innerHTML=`<div class="card">${ok?'질문을 복사했어요.':'복사가 안 됐어요. 아래 글을 길게 눌러 복사하세요.'} Claude가 열리면 질문이 들어가 있거나, 없으면 붙여 넣기 하세요.<div class="row"><a class="btn" href="${url}" target="_blank" rel="noopener" style="text-decoration:none;text-align:center">Claude 열기 ↗</a></div>${ok?'':`<textarea readonly style="width:100%;min-height:90px">${esc(t)}</textarea>`}</div>`})}
@@ -264,7 +268,7 @@ function settings(){app.innerHTML=`<div class="top"><button class="icon" onclick
 <label class="f">정답 자동으로 읽어 주기</label><div class="seg"><button class="${autoOn()?'on':''}" onclick="S.autoTTS=true;save();settings()">켜기</button><button class="${autoOn()?'':'on'}" onclick="S.autoTTS=false;save();settings()">끄기</button></div>
 <div class="tip">아이폰은 기본이 '끄기'예요. 🔊 버튼은 언제든 눌러서 들을 수 있어요. 소리가 안 나면 무음 스위치를 꺼 보세요.</div>
 <div class="row" style="margin-top:20px"><button class="btn soft" onclick="say('Hola, buenos días')">🔊 소리 테스트</button></div>
-<p class="mut" style="margin-top:20px">버전 11-19b · 예비과~9과 · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
+<p class="mut" style="margin-top:20px">버전 11-20a · 예비과~9과 · 스페인어 음성: ${VOICE?esc(VOICE.name):'기본 음성'}</p>`}
 
 home();
 </script>
